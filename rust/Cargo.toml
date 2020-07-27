@@ -1,10 +1,13 @@
 [package]
-name = "rust"
+name = "wrapper"
 version = "0.1.0"
 authors = ["tjan <earltjan@foxmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["rlib", "staticlib"]
 
 [dependencies]
 libc = "0.2.58" # same with filecoin-project/filecoin-ffi
