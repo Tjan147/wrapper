@@ -2,7 +2,7 @@ package wrapper
 
 /*
 #cgo LDFLAGS: -L./rust/target/release -lwrapper
-#include "./rust/rust.h"
+#include "./rust/wrapper.h"
 */
 import "C"
 
