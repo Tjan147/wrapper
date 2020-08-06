@@ -11,3 +11,9 @@ crate-type = ["rlib", "staticlib"]
 
 [dependencies]
 libc = "0.2.58" # same with filecoin-project/filecoin-ffi
+storage-proofs = "4.0.1"
+serde_json = "1.0.57"
+rand = "0.7.3"
+chrono = "0.4.13"
+memmap = "0.7.0"
+tempdir = "0.3.7"

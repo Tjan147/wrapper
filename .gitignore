@@ -1,5 +1,6 @@
 # for rust part
 rust/target/
+rust/sample.txt
 
 # for go part
 build/
