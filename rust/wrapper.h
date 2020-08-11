@@ -16,6 +16,8 @@ extern "C" {
 
 void hello(const char *name);
 
+uint32_t setup(const char *data_path, const char *cache_dir);
+
 #endif /* wrapper_H */
 
 #ifdef __cplusplus

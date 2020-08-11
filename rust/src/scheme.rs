@@ -258,6 +258,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_setup() {
         let sample_dir = Path::new("./sample");
         fs::create_dir(sample_dir).unwrap();

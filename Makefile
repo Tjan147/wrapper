@@ -5,10 +5,11 @@ gohome:
 
 clean: gohome
 	cd rust && cargo clean && rm -f ./wrapper
+	rm -rf rust/sample
+	rm -rf sample
 
 build_rust: gohome
 	cd rust && cargo build --release
-	cd rust && cbindgen --config ./cbindgen.toml --crate wrapper --output ./wrapper.h
 
 build: build_rust gohome
 	go build
