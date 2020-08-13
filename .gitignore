@@ -3,5 +3,8 @@ rust/target/
 rust/sample.txt
 rust/sample/
 
+# for c part
+bin/
+
 # for go part
 build/

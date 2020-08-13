@@ -1,2 +1,2 @@
-pub mod sample;
+pub mod sentinel;
 pub mod scheme;

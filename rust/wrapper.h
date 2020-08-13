@@ -14,7 +14,7 @@ extern "C" {
 #include <stdint.h>
 #include <stdlib.h>
 
-void hello(const char *name);
+void sentinel(const char *name);
 
 uint32_t setup(const char *data_path, const char *cache_dir);
 
