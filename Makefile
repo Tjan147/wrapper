@@ -13,7 +13,7 @@ clean_rust: gohome
 	cd rust && cargo clean && rm wrapper.h
 
 build_c: gohome build_rust
-	gcc --std=c11 -o bin/runner runner.c -Lrust/target/release -lwrapper
+	gcc --std=c11 -o bin/runner c/runner.c -Lrust/target/release -lwrapper
 
 clean_c: gohome
 	rm -rf bin
@@ -21,7 +21,7 @@ clean_c: gohome
 build_go: build_rust gohome
 	go build
 
-clean_go: gohome
+clean_go: gohome clean_c
 	rm -rf sample
 
 test: build

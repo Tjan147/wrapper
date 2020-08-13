@@ -9,11 +9,11 @@ import (
 
 func TestCallRustSetup(t *testing.T) {
 	// sentinel call
-	callRustSample("tjan@golang.TestCallRustSample()")
+	CallSentinel("tjan@golang.TestCallRustSample()")
 
-	err := os.Mkdir("sample", 0644)
+	err := os.Mkdir("sample", 0755)
 	require.NoError(t, err)
 
-	ret := callSetup("rust/sample/sample.txt", "sample")
-	require.Equal(t, 0, ret)
+	ret := CallSetup("rust/sample/sample.txt", "sample")
+	require.Equal(t, uint32(0), ret)
 }
