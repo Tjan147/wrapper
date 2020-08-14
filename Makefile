@@ -19,7 +19,7 @@ clean_c: gohome
 	rm -rf bin
 
 build_go: build_rust gohome
-	go build
+	cd cmd && go build -o ../bin/runner-go
 
 clean_go: gohome clean_c
 	rm -rf sample

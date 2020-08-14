@@ -271,4 +271,16 @@ mod test {
         let res = setup_internal::<PedersenHasher>(input_path.to_str().unwrap(), sample_dir.to_str().unwrap());
         assert!(res.is_ok());
     }
+
+    #[test]
+    #[ignore]
+    fn gen_one_giga_bytes_sized_sample() {
+        let sample_dir = Path::new("./sample");
+        fs::create_dir(sample_dir).unwrap();
+
+        let input_size: usize = 1024 * 1024 * 1024;
+        let input_path = sample_dir.join("sample.txt");
+        
+        gen_sample_file::<PedersenHasher>(input_size / 32, input_path.as_path()).unwrap();
+    }
 }
