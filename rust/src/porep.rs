@@ -2,59 +2,28 @@ extern crate libc;
 
 use std::convert::TryInto;
 use std::ffi::CStr;
-use std::fs::{OpenOptions, metadata};
-use std::io::{self, Write};
+use std::fs::metadata;
 use std::path::Path;
 use std::result::Result;
 
-use memmap::{MmapMut, MmapOptions};
 use merkletree::store::StoreConfig;
-use rand::{rngs::OsRng, Rng};
+use rand;
 use storage_proofs::cache_key::CacheKey;
 use storage_proofs::util::default_rows_to_discard;
 use storage_proofs::drgraph::BASE_DEGREE;
 use storage_proofs::hasher::{Domain, Hasher, PedersenHasher, Sha256Hasher};
 use storage_proofs::merkle::BinaryMerkleTree;
-use storage_proofs::porep::stacked::{LayerChallenges, StackedDrg, SetupParams, PublicInputs, PrivateInputs, TemporaryAuxCache, EXP_DEGREE, BINARY_ARITY};
+use storage_proofs::porep::stacked::{LayerChallenges, StackedDrg, SetupParams, EXP_DEGREE, BINARY_ARITY};
 use storage_proofs::porep::PoRep;
 use storage_proofs::proof::ProofScheme;
+
+use super::util;
+use super::param;
 
 const OK: u32 = 0;
 const ERR_RET: u32 = std::u32::MAX;
 
-fn new_rand_seed() -> [u8; 32] {
-    OsRng.gen()
-}
-
-fn load_file_backed_mmap(path: &Path) -> Result<MmapMut, io::Error> {
-    let file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open(path)?;
-
-    unsafe {
-        MmapOptions::new()
-            .map_mut(&file)
-    }
-}
-
-fn save_file_backed_mmap(data: &[u8], path: &Path) -> Result<MmapMut, io::Error> {
-    let mut file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open(path)?;
-    file.write_all(data)?;
-
-    unsafe {
-        MmapOptions::new()
-            .map_mut(&file)
-    }
-}
-
-// TODO: can be refactored using map_err & and_then
-fn get_node_count<P: AsRef<Path>>(path: P) -> Result<usize, String> {
+fn get_nodes_num<P: AsRef<Path>>(path: P) -> Result<usize, String> {
     match metadata(path) {
         Err(e) => {
             return Err(format!("failed to open file: {}", e));
@@ -78,11 +47,11 @@ fn get_node_count<P: AsRef<Path>>(path: P) -> Result<usize, String> {
 // partitions = 1
 // challenges = 1
 
-fn setup_internal<H: 'static>(data_path: &str, cache_path: &str) -> Result<u32, String>
+fn setup_inner<H: 'static>(data_path: &str, cache_path: &str) -> Result<u32, String>
 where
     H: Hasher,
 {
-    let nodes = match get_node_count(data_path) {
+    let nodes = match get_nodes_num(data_path) {
         Err(e) => {
             return Err(format!("error get file's metadata: {}", e))
         },
@@ -99,9 +68,19 @@ where
         nodes: nodes,
         degree: BASE_DEGREE,
         expansion_degree: EXP_DEGREE,
-        porep_id: new_rand_seed(),
+        porep_id: util::new_seed(),
         layer_challenges: LayerChallenges::new(11, 1),
     };
+
+    match param::dump_setup_param(&sp) {
+        Err(e) => {
+            return Err(format!("error generating setup param: {}", e))
+        },
+        Ok(data) => {
+            println!("SetupParams = {}", data.as_str());
+        },
+    }
+
     let pp = match StackedDrg::<BinaryMerkleTree<H>, Sha256Hasher>::setup(&sp) {
         Err(e) => {
             return Err(format!("error setting up: {}", e))
@@ -112,15 +91,17 @@ where
     let rng = &mut rand::thread_rng();
     let replica_id = H::Domain::random(rng);
 
-    let data = match load_file_backed_mmap(Path::new(data_path)) {
+    let data = match util::read_file_as_mmap(Path::new(data_path)) {
         Err(e) => {
             return Err(format!("error read data: {}", e))
         },
         Ok(d) => d,
     };
 
+    // TODO: replace the fixed replica file name by "$(FILENAME).replica" later
+    // TODO: more path validation logic here
     let replica_file = Path::new(cache_path).join("replica.dat");
-    let mut mapped_data = match save_file_backed_mmap(&data, replica_file.as_path()) {
+    let mut mapped_data = match util::write_file_and_mmap(replica_file.as_path(), &data) {
         Err(e) => {
             return Err(format!("error creating replica file: {}", e))
         },
@@ -143,27 +124,37 @@ where
         Ok(t) => t,
     };
 
-    let seed = rng.gen();
-    let pb = PublicInputs::<H::Domain, <Sha256Hasher as Hasher>::Domain> {
-        replica_id, 
-        seed,
-        tau: Some(tau),
-        k: Some(0), // TODO: magic number here
-    };
-
-    let t_aux = match TemporaryAuxCache::new(&t_aux, replica_file) {
+    match param::dump_tau(&tau) {
         Err(e) => {
-            return Err(format!("error create private input: {}", e))
+            return Err(format!("error dump param tau: {}", e))
         },
-        Ok(t) => t,
-    };
+        Ok(data) => {
+            println!("tau = {}", data);
+        },
+    }
 
-    let pv = PrivateInputs { p_aux, t_aux };
-    // TODO: find a way to serialize the key parameters
+    match param::dump_p_aux(&p_aux) {
+        Err(e) => {
+            return Err(format!("error dump param p_aux: {}", e))
+        },
+        Ok(data) => {
+            println!("p_aux = {}", data);
+        },
+    }
+
+    match param::dump_t_aux(&t_aux) {
+        Err(e) => {
+            return Err(format!("error dump param t_aux: {}", e))
+        },
+        Ok(data) => {
+            println!("t_aux = {}", data);
+        },
+    }
 
     Ok(OK)
 }
 
+// FFI
 #[no_mangle]
 pub extern "C" fn setup(data_path: *const libc::c_char, cache_dir: *const libc::c_char) -> u32 {
     let file_path_buf = unsafe { CStr::from_ptr(data_path).to_bytes() };
@@ -184,7 +175,7 @@ pub extern "C" fn setup(data_path: *const libc::c_char, cache_dir: *const libc::
         Ok(p) => p,
     };
 
-    let res = match setup_internal::<PedersenHasher>(file_path.as_str(), cache_path.as_str()) {
+    let res = match setup_inner::<PedersenHasher>(file_path.as_str(), cache_path.as_str()) {
         Err(info) => {
             eprintln!("error setup: {}", info);
             return ERR_RET
@@ -197,33 +188,14 @@ pub extern "C" fn setup(data_path: *const libc::c_char, cache_dir: *const libc::
 
 #[cfg(test)]
 mod test {
-    use super::*;
-
     use std::fs::{self, remove_file};
-    use std::io;
     use std::ops::Deref;
 
     use rand::Rng;
-    use storage_proofs::hasher::{Domain, Hasher, PedersenHasher};
+    use storage_proofs::hasher::PedersenHasher;
 
-    // create the test sample file
-    fn gen_sample_file<H: 'static>(nodes: usize, path: &Path) -> io::Result<usize> 
-    where
-        H: Hasher,
-    { 
-        let rng = &mut rand::thread_rng();
-        let data: Vec<u8> = (0..nodes)
-            .flat_map(|_| {
-                let v: H::Domain = H::Domain::random(rng);
-                v.into_bytes()
-            })
-            .collect();
-        
-        let _ = save_file_backed_mmap(&data, path)
-            .expect("error saving temporary sample data");
-
-        Ok(data.len())
-    }
+    use super::*;
+    use super::super::util::{self, test::gen_sample_file};
 
     #[test]
     fn test_gen_sample_data() {
@@ -247,40 +219,27 @@ mod test {
         let gen_path = Path::new("sample.txt");
 
         {
-            let gen_map = save_file_backed_mmap(content.as_bytes(), gen_path).expect("failed to write sample.txt");
+            let gen_map = util::write_file_and_mmap(gen_path, content.as_bytes()).expect("failed to write sample.txt");
             assert_eq!(content.as_bytes(), gen_map.deref());
         }
 
-        let load_map = load_file_backed_mmap(gen_path).expect("failed to read sample.txt");
+        let load_map = util::read_file_as_mmap(gen_path).expect("failed to read sample.txt");
         assert_eq!(content.as_bytes(), load_map.deref());
 
         remove_file(gen_path).expect("failed to delete the sample.txt");
     }
 
     #[test]
-    #[ignore]
     fn test_setup() {
         let sample_dir = Path::new("./sample");
         fs::create_dir(sample_dir).unwrap();
 
-        let input_size: usize = 1024 * 1024;
+        let input_size: usize = 1024; // 1k, just a simple quick test here
         let input_path = sample_dir.join("sample.txt");
 
         gen_sample_file::<PedersenHasher>(input_size / 32, input_path.as_path()).unwrap();
 
-        let res = setup_internal::<PedersenHasher>(input_path.to_str().unwrap(), sample_dir.to_str().unwrap());
+        let res = setup_inner::<PedersenHasher>(input_path.to_str().unwrap(), sample_dir.to_str().unwrap());
         assert!(res.is_ok());
-    }
-
-    #[test]
-    #[ignore]
-    fn gen_one_giga_bytes_sized_sample() {
-        let sample_dir = Path::new("./sample");
-        fs::create_dir(sample_dir).unwrap();
-
-        let input_size: usize = 1024 * 1024 * 1024;
-        let input_path = sample_dir.join("sample.txt");
-        
-        gen_sample_file::<PedersenHasher>(input_size / 32, input_path.as_path()).unwrap();
     }
 }

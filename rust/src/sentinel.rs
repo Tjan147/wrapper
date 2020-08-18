@@ -1,6 +1,7 @@
 extern crate libc;
 use std::ffi::CStr;
 
+// FFI API 
 // use this simple call as an sentinel for rust-ffi/cgo interaction test
 #[no_mangle]
 pub extern "C" fn sentinel(name: *const libc::c_char) {
