@@ -193,31 +193,17 @@ mod test {
     use storage_proofs::hasher::PedersenHasher;
 
     use super::*;
-    use super::super::util::test::gen_sample_file;
-
-    #[test]
-    fn test_gen_sample_data() {
-        let input_size: usize = 1024 * 1024;
-        let input_path = Path::new("sample.txt");
-
-        let gen_result = gen_sample_file::<PedersenHasher>(input_size / 32, input_path);
-        let gen_size = metadata(input_path).unwrap().len();
-
-        assert_eq!(input_size, gen_size as usize);
-        println!("A sample file({}) with {} nodes({} Bytes) generated successfully!", 
-            input_path.display(), gen_result.unwrap(), gen_size);
-
-        // comment the following out if you need the generated data
-        remove_file(input_path).expect("failed to delete generated sample file.");
-    } 
+    use super::super::util::{self, test::gen_sample_file};
 
     #[test]
     fn test_setup() {
         let sample_dir = Path::new("./sample");
-        fs::create_dir(sample_dir).unwrap();
+        
+        util::init_output_dir(sample_dir, true)
+            .expect("error setting up the test sample dir");
 
         let input_size: usize = 1024; // 1k, just a simple quick test here
-        let input_path = sample_dir.join("sample.txt");
+        let input_path = sample_dir.join("sample.dat");
 
         gen_sample_file::<PedersenHasher>(input_size / 32, input_path.as_path()).unwrap();
 

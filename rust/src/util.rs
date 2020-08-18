@@ -148,28 +148,29 @@ pub(crate) mod test {
     #[test]
     fn test_file_backed_mmap() {
         let content = format!("the new generated random is {}.", rand::thread_rng().gen_range(1, 114514));
-        let gen_path = Path::new("sample.txt");
+        let gen_path = Path::new("sample.dat");
 
         {
-            let gen_map = write_file_and_mmap(gen_path, content.as_bytes()).expect("failed to write sample.txt");
+            let gen_map = write_file_and_mmap(gen_path, content.as_bytes())
+                .expect("failed to write sample.dat");
             assert_eq!(content.as_bytes(), gen_map.deref());
         }
 
-        let load_map = read_file_as_mmap(gen_path).expect("failed to read sample.txt");
+        let load_map = read_file_as_mmap(gen_path).expect("failed to read sample.dat");
         assert_eq!(content.as_bytes(), load_map.deref());
 
-        fs::remove_file(gen_path).expect("failed to delete the sample.txt");
+        fs::remove_file(gen_path).expect("failed to delete the sample.dat");
     }
 
-    // this is actually used as an test sample
+    // this is actually used as an test sample for benchmark
     #[test]
     #[ignore]
     fn gen_one_giga_bytes_sample() {
         let sample_dir = Path::new("./sample");
-        fs::create_dir(sample_dir).unwrap();
+        init_output_dir(sample_dir, true).expect("failed to setting the sample dir");
 
         let input_size: usize = 1024 * 1024 * 1024;
-        let input_path = sample_dir.join("sample.txt");
+        let input_path = sample_dir.join("sample.dat");
         
         gen_sample_file::<PedersenHasher>(input_size / 32, input_path.as_path()).unwrap();
     }
