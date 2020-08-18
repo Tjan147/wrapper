@@ -94,11 +94,13 @@ mod test {
 
     #[test]
     fn test_serde_setup_params() {
-        let sample = sample_setup_params();
-        let lhs = PersistentSetupParam::from_setup_params(&sample);
+        let lhs = sample_setup_params();
+        let tmp = PersistentSetupParam::from_setup_params(&lhs);
 
-        let data = serde_json::to_string(&lhs).unwrap();
-        let rhs: PersistentSetupParam = serde_json::from_str(&data).unwrap();
+        let data = serde_json::to_string(&tmp).unwrap();
+        let another_tmp: PersistentSetupParam = serde_json::from_str(&data).unwrap();
+
+        let rhs = another_tmp.into_setup_params();
 
         assert_eq!(lhs.nodes, rhs.nodes);
         assert_eq!(lhs.degree, rhs.degree);

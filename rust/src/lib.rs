@@ -1,4 +1,4 @@
 pub mod sentinel;
-pub mod param;
+mod param;
 pub mod porep;
-pub mod util; 
+mod util; 

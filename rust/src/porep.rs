@@ -189,13 +189,11 @@ pub extern "C" fn setup(data_path: *const libc::c_char, cache_dir: *const libc::
 #[cfg(test)]
 mod test {
     use std::fs::{self, remove_file};
-    use std::ops::Deref;
 
-    use rand::Rng;
     use storage_proofs::hasher::PedersenHasher;
 
     use super::*;
-    use super::super::util::{self, test::gen_sample_file};
+    use super::super::util::test::gen_sample_file;
 
     #[test]
     fn test_gen_sample_data() {
@@ -212,22 +210,6 @@ mod test {
         // comment the following out if you need the generated data
         remove_file(input_path).expect("failed to delete generated sample file.");
     } 
-
-    #[test]
-    fn test_file_backed_mmap() {
-        let content = format!("the new generated random is {}.", rand::thread_rng().gen_range(1, 114514));
-        let gen_path = Path::new("sample.txt");
-
-        {
-            let gen_map = util::write_file_and_mmap(gen_path, content.as_bytes()).expect("failed to write sample.txt");
-            assert_eq!(content.as_bytes(), gen_map.deref());
-        }
-
-        let load_map = util::read_file_as_mmap(gen_path).expect("failed to read sample.txt");
-        assert_eq!(content.as_bytes(), load_map.deref());
-
-        remove_file(gen_path).expect("failed to delete the sample.txt");
-    }
 
     #[test]
     fn test_setup() {
