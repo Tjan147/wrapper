@@ -10,11 +10,11 @@ use storage_proofs::porep::stacked::{LayerChallenges, SetupParams, EXP_DEGREE, B
 use storage_proofs::porep::PoRep;
 use storage_proofs::proof::ProofScheme;
 
-use super::error;
-use super::util;
-use super::param;
+use super::error::Result;
+use super::{param, util};
 
-fn dump_setup_inputs(target: &Path, scfg: &StoreConfig, sp: &SetupParams) -> error::Result<()> {
+fn dump_setup_inputs<D: Domain>(target: &Path, scfg: &StoreConfig, sp: &SetupParams, rid: &D) -> Result<()> 
+{
     let scfg_data = param::dump_as_json(scfg)?;
     util::write_file(&target.with_extension("store_conf").as_path(), scfg_data.as_bytes())?;
 
@@ -22,13 +22,16 @@ fn dump_setup_inputs(target: &Path, scfg: &StoreConfig, sp: &SetupParams) -> err
     let p_sp_data = param::dump_as_json(&p_sp)?;
     util::write_file(&target.with_extension("p_sp"), p_sp_data.as_bytes())?;
 
+    let rid_data = param::dump_as_json(rid)?;
+    util::write_file(&target.with_extension("replica_id"), rid_data.as_bytes())?;
+
     Ok(())
 }
 
 fn dump_setup_outputs<D, E, F, T, H>(
     target: &Path,
     tau: &Tau<D, E>, p_aux: &PersistentAux<F>, t_aux: &TemporaryAux<T, H>,
-) -> error::Result<()> 
+) -> Result<()> 
 where
     D: Domain,
     E: Domain,
@@ -49,11 +52,11 @@ where
     Ok(())
 }
 
-fn prepare_setup(src_path: &Path, cache_path: &Path, id: [u8;32]) -> error::Result<(StoreConfig, SetupParams)> {
-    let nodes = util::count_nodes(src_path)?;
+fn prepare_setup(src: &Path, cache: &Path, id: [u8;32]) -> Result<(StoreConfig, SetupParams)> {
+    let nodes = util::count_nodes(src)?;
 
     Ok((StoreConfig::new(
-        cache_path,
+        cache,
         CacheKey::CommDTree.to_string(),
         default_rows_to_discard(nodes, BINARY_ARITY),
     ), 
@@ -66,21 +69,19 @@ fn prepare_setup(src_path: &Path, cache_path: &Path, id: [u8;32]) -> error::Resu
     }))
 }
 
-pub fn setup_inner<H: 'static>(src_path: &Path, cache_path: &Path) -> error::Result<()>
+pub fn setup_inner<H: 'static>(src_path: &Path, cache_path: &Path) -> Result<()>
 where
     H: Hasher,
 {
     let (scfg, sp) = prepare_setup(src_path, cache_path, util::new_seed())?;
-
-    let output_path = util::output_file_name(src_path, cache_path, "replica")?;
-    dump_setup_inputs(output_path.as_path(), &scfg, &sp)?;
-
-    let pp = StackedDrg::<BinaryMerkleTree<H>, Sha256Hasher>::setup(&sp)?;
-
-    // TODO: replace this with input parameters
+    
     let rng = &mut rand::thread_rng();
     let replica_id = H::Domain::random(rng);
 
+    let output_path = util::output_file_name(src_path, cache_path, "replica")?;
+    dump_setup_inputs(output_path.as_path(), &scfg, &sp, &replica_id)?;
+
+    let pp = StackedDrg::<BinaryMerkleTree<H>, Sha256Hasher>::setup(&sp)?;
     let data = util::read_file_as_mmap(src_path)?;
     let mut mapped_data = util::write_file_and_mmap(output_path.as_path(), &data)?;
     
