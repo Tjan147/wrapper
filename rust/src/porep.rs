@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use merkletree::store::StoreConfig;
 use storage_proofs::cache_key::CacheKey;
@@ -69,7 +69,7 @@ fn prepare_setup(src: &Path, cache: &Path, id: [u8;32]) -> Result<(StoreConfig, 
     }))
 }
 
-pub fn setup_inner<H: 'static>(src_path: &Path, cache_path: &Path) -> Result<()>
+pub fn setup_inner<H: 'static>(src_path: &Path, cache_path: &Path) -> Result<PathBuf>
 where
     H: Hasher,
 {
@@ -97,7 +97,7 @@ where
 
     dump_setup_outputs(output_path.as_path(), &tau, &p_aux, &t_aux)?;
 
-    Ok(())
+    Ok(output_path)
 }
 
 #[cfg(test)]
