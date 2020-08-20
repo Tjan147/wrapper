@@ -1,4 +1,4 @@
-use std::convert::AsRef;
+use std::convert::{AsRef, TryInto};
 use std::ffi::OsStr;
 use std::fs::{self, OpenOptions};
 use std::io::{self, ErrorKind, Write}; 
@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 
 use memmap::{MmapMut, MmapOptions};
 use rand::{rngs::OsRng, Rng};
+
+const NODE_SIZE: u64 = 32;
 
 pub fn new_seed() -> [u8; 32] {
     OsRng.gen()
@@ -27,9 +29,6 @@ pub fn init_output_dir<P: AsRef<Path> + Copy>(path: P, overwrite: bool) -> io::R
 }
 
 pub fn output_file_name<P: AsRef<Path>>(src_file: P, output_dir: P, ext: &str) -> io::Result<PathBuf> {
-    if !src_file.as_ref().is_file() {
-        return Err(io::Error::new(ErrorKind::InvalidInput, "input path is not a file"))
-    }
     let name = match src_file.as_ref().file_name() {
         None => {
             return Err(io::Error::new(ErrorKind::InvalidInput, "malformed input filename"))
@@ -38,13 +37,24 @@ pub fn output_file_name<P: AsRef<Path>>(src_file: P, output_dir: P, ext: &str) -
     };
 
     let mut res = PathBuf::from(output_dir.as_ref());
-    res.set_file_name(name);
+    res.push(name);
     res.set_extension(OsStr::new(ext));
 
     Ok(res)
 }
 
-pub fn read_file_as_mmap(path: &Path) -> Result<MmapMut, io::Error> {
+pub fn count_nodes<P: AsRef<Path>>(path: P) -> io::Result<usize> {
+    let file_info = fs::metadata(path)?;
+
+    match (file_info.len() / NODE_SIZE).try_into() {
+        Err(e) => {
+            return Err(io::Error::new(ErrorKind::Other, e))
+        },
+        Ok(p) => Ok(p),
+    }
+}
+
+pub fn read_file_as_mmap(path: &Path) -> io::Result<MmapMut> {
     let file = OpenOptions::new()
         .read(true)
         .write(true)
@@ -57,7 +67,7 @@ pub fn read_file_as_mmap(path: &Path) -> Result<MmapMut, io::Error> {
     }
 }
 
-pub fn write_file(path: &Path, data: &[u8]) -> Result<(), io::Error> {
+pub fn write_file(path: &Path, data: &[u8]) -> io::Result<()> {
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)
@@ -68,7 +78,7 @@ pub fn write_file(path: &Path, data: &[u8]) -> Result<(), io::Error> {
     Ok(())
 }
 
-pub fn write_file_and_mmap(path: &Path, data: &[u8]) -> Result<MmapMut, io::Error> {
+pub fn write_file_and_mmap(path: &Path, data: &[u8]) -> io::Result<MmapMut> {
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)
@@ -140,9 +150,11 @@ pub(crate) mod test {
         gen_sample_file::<PedersenHasher>(128, &sample_file)
             .expect("cannot setup test sample file");
 
-        let example1 = output_file_name(sample_file, PathBuf::from("."), "txt")
+        let example1 = output_file_name(sample_file, PathBuf::from("./another_example"), "txt")
             .expect("error create the output filename");
-        assert_eq!(Path::new("./sample.txt"), example1);
+        assert_eq!(Path::new("./another_example/sample.txt"), example1);
+        let example2 = example1.with_extension("store_conf");
+        assert_eq!(Path::new("./another_example/sample.store_conf"), example2);
     }
 
     #[test]
@@ -163,6 +175,7 @@ pub(crate) mod test {
     }
 
     // this is actually used as an test sample for benchmark
+    // TODO: move this logic to integrate test logic later
     #[test]
     #[ignore]
     fn gen_one_giga_bytes_sample() {

@@ -1,4 +1,7 @@
 pub mod sentinel;
+pub mod ffi;
+
+mod error;
 mod param;
-pub mod porep;
+mod porep;
 mod util; 
