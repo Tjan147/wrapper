@@ -15,7 +15,6 @@ use super::error::Result;
 use super::param::{self, PersistentSetupParam, PersistentTau};
 use super::util;
 
-// TODO: refactor this with more precious type parameter for the generic
 fn dump_setup_inputs<D>(target: &Path, scfg: &StoreConfig, sp: &SetupParams, rid: &D) -> Result<()> 
 where
     D: Domain,
@@ -33,7 +32,6 @@ where
     Ok(())
 }
 
-// TODO: refactor this with more precious type parameter for the generic
 fn dump_setup_outputs<D, E, F, T, H>(
     target: &Path,
     tau: &Tau<D, E>, p_aux: &PersistentAux<F>, t_aux: &TemporaryAux<T, H>,
