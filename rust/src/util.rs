@@ -13,28 +13,18 @@ pub fn new_seed() -> [u8; 32] {
     OsRng.gen()
 }
 
-pub fn init_output_dir<P: AsRef<Path> + Copy>(path: P, overwrite: bool) -> io::Result<()> {
-    if path.as_ref().exists() {
-        match overwrite {
-            true => {
-                fs::remove_dir_all(path)?;
-            },
-            false => {
-                return Err(io::Error::new(ErrorKind::AlreadyExists, "target existed"))
-            }
-        }
+pub fn init_output_dir<P: AsRef<Path> + Copy>(path: P, clear_first: bool) -> io::Result<()> {
+    if clear_first && path.as_ref().exists() {
+        fs::remove_dir_all(path)?;
     }
 
     fs::create_dir_all(path)
 }
 
 pub fn output_file_name<P: AsRef<Path>>(src_file: P, output_dir: P, ext: &str) -> io::Result<PathBuf> {
-    let name = match src_file.as_ref().file_name() {
-        None => {
-            return Err(io::Error::new(ErrorKind::InvalidInput, "malformed input filename"))
-        },
-        Some(s) => s,
-    };
+    let name = src_file.as_ref()
+        .file_name()
+        .ok_or_else(|| { io::Error::new(ErrorKind::InvalidInput, "cannot extract file's name") })?;
 
     let mut res = PathBuf::from(output_dir.as_ref());
     res.push(name);
@@ -73,9 +63,8 @@ pub fn write_file(path: &Path, data: &[u8]) -> io::Result<()> {
         .write(true)
         .create(true)
         .open(path)?;
-    file.write_all(data)?;
 
-    Ok(())
+    file.write_all(data)
 }
 
 pub fn write_file_and_mmap(path: &Path, data: &[u8]) -> io::Result<MmapMut> {

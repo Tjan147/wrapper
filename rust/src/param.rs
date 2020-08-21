@@ -1,7 +1,10 @@
 use std::convert::{AsRef, From};
+use std::fs;
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
-use storage_proofs::hasher::Domain;
+use storage_proofs::hasher::{Hasher, Domain};
+use storage_proofs::merkle::{MerkleTreeTrait};
 use storage_proofs::porep::stacked::{LayerChallenges, SetupParams, Tau};
 
 use super::error;
@@ -64,9 +67,12 @@ impl<'a, D: Domain, E: Domain> From<&'a Tau<D, E>> for PersistentTau {
     }
 }
 
-// TODO: replace following method with TryFrom implementation later
 impl PersistentTau {
-    pub fn into_tau<D: Domain, E: Domain>(&self) -> error::Result<Tau<D, E>> {
+    pub fn as_tau<Tree, G>(&self) -> error::Result<Tau<<Tree::Hasher as Hasher>::Domain, <G as Hasher>::Domain>>
+    where
+        Tree: 'static + MerkleTreeTrait,
+        G: 'static + Hasher,
+    {
         let comm_d = Domain::try_from_bytes(self.comm_d.as_ref())?;
         let comm_r = Domain::try_from_bytes(self.comm_r.as_ref())?;
 
@@ -77,9 +83,14 @@ impl PersistentTau {
     }
 }
 
-pub fn dump_as_json<T: Serialize>(param: &T) -> error::Result<String> {
+pub fn into_json<T: Serialize>(param: &T) -> error::Result<String> {
     let data = serde_json::to_string(param)?;
     Ok(data)
+}
+
+pub fn from_json<'a, T: Deserialize<'a>>(s: &'a str) -> error::Result<T> {
+    let inst = serde_json::from_str(s)?;
+    Ok(inst)
 }
 
 #[cfg(test)]
@@ -88,6 +99,8 @@ mod test {
     use serde_json;
 
     use storage_proofs::drgraph::BASE_DEGREE;
+    use storage_proofs::hasher::{PedersenHasher, Sha256Hasher};
+    use storage_proofs::merkle::BinaryMerkleTree;
     use storage_proofs::porep::stacked::{EXP_DEGREE, LayerChallenges, SetupParams};
 
     use super::*;
@@ -119,5 +132,24 @@ mod test {
         assert_eq!(&lhs.porep_id, &rhs.porep_id);
         assert_eq!(lhs.layer_challenges.layers(), rhs.layer_challenges.layers());
         assert_eq!(lhs.layer_challenges.challenges_count_all(), rhs.layer_challenges.challenges_count_all());
+    }
+
+    #[test]
+    fn test_serde_tau() {
+        // TODO: uncouple this case with the test_setup test
+        let sample_tau_path = Path::new("./sample/sample.p_tau");
+        let sample_tau_data = fs::read_to_string(sample_tau_path)
+            .expect("error loading the ./sample/sample.p_tau file's data");
+
+        let p_tau = serde_json::from_str::<PersistentTau>(&sample_tau_data)
+            .expect("error restore PersistentTau object");
+        let tau = p_tau.as_tau::<BinaryMerkleTree<PedersenHasher>, Sha256Hasher>()
+            .expect("as_tau: type convert failed");
+
+        let another_p_tau = PersistentTau::from(&tau);
+        let another_p_tau_data = serde_json::to_string(&another_p_tau)
+            .expect("error dump the ref PersistentTau object");
+
+        assert_eq!(sample_tau_data, another_p_tau_data);
     }
 }

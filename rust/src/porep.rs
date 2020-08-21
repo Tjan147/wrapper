@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::fs;
 
 use merkletree::store::StoreConfig;
 use storage_proofs::cache_key::CacheKey;
@@ -11,23 +12,28 @@ use storage_proofs::porep::PoRep;
 use storage_proofs::proof::ProofScheme;
 
 use super::error::Result;
-use super::{param, util};
+use super::param::{self, PersistentSetupParam, PersistentTau};
+use super::util;
 
-fn dump_setup_inputs<D: Domain>(target: &Path, scfg: &StoreConfig, sp: &SetupParams, rid: &D) -> Result<()> 
+// TODO: refactor this with more precious type parameter for the generic
+fn dump_setup_inputs<D>(target: &Path, scfg: &StoreConfig, sp: &SetupParams, rid: &D) -> Result<()> 
+where
+    D: Domain,
 {
-    let scfg_data = param::dump_as_json(scfg)?;
+    let scfg_data = param::into_json(scfg)?;
     util::write_file(&target.with_extension("store_conf").as_path(), scfg_data.as_bytes())?;
 
     let p_sp = param::PersistentSetupParam::from(sp);
-    let p_sp_data = param::dump_as_json(&p_sp)?;
+    let p_sp_data = param::into_json(&p_sp)?;
     util::write_file(&target.with_extension("p_sp"), p_sp_data.as_bytes())?;
 
-    let rid_data = param::dump_as_json(rid)?;
-    util::write_file(&target.with_extension("replica_id"), rid_data.as_bytes())?;
+    let rid_data = rid.into_bytes();
+    util::write_file(&target.with_extension("replica_id"), &rid_data)?;
 
     Ok(())
 }
 
+// TODO: refactor this with more precious type parameter for the generic
 fn dump_setup_outputs<D, E, F, T, H>(
     target: &Path,
     tau: &Tau<D, E>, p_aux: &PersistentAux<F>, t_aux: &TemporaryAux<T, H>,
@@ -40,13 +46,13 @@ where
     H: Hasher,
 {
     let p_tau = param::PersistentTau::from(tau);
-    let p_tau_data = param::dump_as_json(&p_tau)?;
+    let p_tau_data = param::into_json(&p_tau)?;
     util::write_file(&target.with_extension("p_tau"), p_tau_data.as_bytes())?;
 
-    let p_aux_data = param::dump_as_json(p_aux)?;
+    let p_aux_data = param::into_json(p_aux)?;
     util::write_file(&target.with_extension("p_aux"), p_aux_data.as_bytes())?;
 
-    let t_aux_data = param::dump_as_json(t_aux)?;
+    let t_aux_data = param::into_json(t_aux)?;
     util::write_file(&target.with_extension("t_aux"), t_aux_data.as_bytes())?;
 
     Ok(())
@@ -69,9 +75,9 @@ fn prepare_setup(src: &Path, cache: &Path, id: [u8;32]) -> Result<(StoreConfig, 
     }))
 }
 
-pub fn setup_inner<H: 'static>(src_path: &Path, cache_path: &Path) -> Result<PathBuf>
+pub fn setup_inner<H>(src_path: &Path, cache_path: &Path) -> Result<PathBuf>
 where
-    H: Hasher,
+    H: 'static + Hasher,
 {
     let (scfg, sp) = prepare_setup(src_path, cache_path, util::new_seed())?;
     
@@ -99,6 +105,16 @@ where
 
     Ok(output_path)
 }
+
+// TODO: implement following
+// pub fn prove_inner<H: 'static>(output_path: &Path) -> Result<String>
+// where
+//     H: Hasher,
+// {
+// }
+
+// TODO: implement following
+// verify_inner
 
 #[cfg(test)]
 mod test {
