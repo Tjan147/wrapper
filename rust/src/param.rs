@@ -14,10 +14,12 @@ use super::error::Result;
 // layers = 11
 // partitions = 1
 // challenges = 1
+// k = 0
 
 pub const DEFAULT_LAYER: usize = 11;
 pub const DEFAULT_MAX_COUNT: usize = 1;
 pub const DEFAULT_PARTITION: usize = 1;
+pub const DEFAULT_K: usize = 0;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PersistentSetupParam {

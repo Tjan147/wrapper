@@ -7,7 +7,7 @@ use storage_proofs::util::default_rows_to_discard;
 use storage_proofs::drgraph::BASE_DEGREE;
 use storage_proofs::hasher::{Domain, Hasher, Sha256Hasher};
 use storage_proofs::merkle::{BinaryMerkleTree, MerkleTreeTrait};
-use storage_proofs::porep::stacked::{LayerChallenges, SetupParams, EXP_DEGREE, BINARY_ARITY, StackedDrg, Tau, PersistentAux, TemporaryAux};
+use storage_proofs::porep::stacked::{self, LayerChallenges, SetupParams, EXP_DEGREE, BINARY_ARITY, StackedDrg, Tau, PersistentAux, TemporaryAux, TemporaryAuxCache};
 use storage_proofs::porep::PoRep;
 use storage_proofs::proof::ProofScheme;
 
@@ -30,6 +30,16 @@ where
     util::write_file(&target.with_extension("replica_id"), &rid_data)?;
 
     Ok(())
+}
+
+fn restore_setup_params(target: &Path) -> Result<(StoreConfig, SetupParams)> {
+    let scfg_data = fs::read_to_string(&target.with_extension("store_conf"))?;
+    let scfg = param::from_json::<StoreConfig>(&scfg_data)?;
+
+    let p_sp_data = fs::read_to_string(&target.with_extension("p_sp"))?;
+    let p_sp = param::from_json::<PersistentSetupParam>(&p_sp_data)?;
+    
+    Ok((scfg, SetupParams::from(&p_sp)))
 }
 
 fn dump_setup_outputs<D, E, F, T, H>(
@@ -104,12 +114,48 @@ where
     Ok(output_path)
 }
 
-// TODO: implement following
-// pub fn prove_inner<H: 'static>(output_path: &Path) -> Result<String>
-// where
-//     H: Hasher,
-// {
-// }
+pub fn prove_inner<H: 'static>(output_path: &Path) -> Result<String>
+where
+    H: Hasher,
+{
+    let (scfg, sp) = restore_setup_params(output_path)?;
+    let pp = StackedDrg::<BinaryMerkleTree<H>, Sha256Hasher>::setup(&sp)?;
+
+    let replica_id_data = fs::read_to_string(&output_path.with_extension("replica_id").as_path())?;
+    let replica_id = param::restore_replica_id::<BinaryMerkleTree<H>>(&replica_id_data)?;
+
+    let p_tau_data = fs::read_to_string(&output_path.with_extension("p_tau").as_path())?;
+    let p_tau = serde_json::from_str::<PersistentTau>(&p_tau_data)?;
+    let tau = p_tau.as_tau::<BinaryMerkleTree<H>, Sha256Hasher>()?;
+
+    let t_aux_data = fs::read_to_string(&output_path.with_extension("t_aux").as_path())?;
+    let t_aux = param::restore_t_aux::<BinaryMerkleTree<H>, Sha256Hasher>(&t_aux_data)?;
+
+    let p_aux_data = fs::read_to_string(&output_path.with_extension("p_aux").as_path())?;
+    let p_aux = param::restore_p_aux::<BinaryMerkleTree<H>>(&p_aux_data)?;
+
+    let pb = stacked::PublicInputs::<H::Domain, <Sha256Hasher as Hasher>::Domain> {
+        replica_id,
+        seed: util::new_seed(),
+        tau: Some(tau),
+        k: Some(param::DEFAULT_K),
+    };
+
+    let t_aux = TemporaryAuxCache::new(&t_aux, output_path.to_path_buf())?;
+    let pv = stacked::PrivateInputs {
+        p_aux,
+        t_aux,
+    };
+
+    let proof = StackedDrg::<BinaryMerkleTree<H>, Sha256Hasher>::prove_all_partitions(
+        &pp,
+        &pb,
+        &pv,
+        param::DEFAULT_PARTITION,
+    )?;
+
+    param::into_json(&proof)
+}
 
 // TODO: implement following
 // verify_inner
@@ -133,7 +179,19 @@ mod test {
 
         gen_sample_file::<PedersenHasher>(input_size / 32, input_path.as_path()).unwrap();
 
-        let res = setup_inner::<PedersenHasher>(input_path.as_path(), sample_dir);
-        assert!(res.is_ok());
+        setup_inner::<PedersenHasher>(input_path.as_path(), sample_dir)
+            .expect("failed to setup");
+    }
+
+    #[test]
+    fn test_prove() {
+        // TODO: uncouple this case with the test_setup test
+        // TODO: move this alone with the big sample generation test to integrate test
+
+        let sample_path = Path::new("./sample/sample.replica");
+        let res = prove_inner::<PedersenHasher>(sample_path)
+            .expect("failed to prove");
+
+        println!("len(proof) = {}", res.len());
     }
 }
