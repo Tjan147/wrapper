@@ -105,27 +105,35 @@ pub fn verify_inner<Tree: 'static + MerkleTreeTrait>(
 
 #[cfg(test)]
 mod test {
-    // use storage_proofs::hasher::PedersenHasher;
+    use storage_proofs::merkle::BinaryMerkleTree;
+    use storage_proofs::hasher::PedersenHasher;
 
-    // use super::*;
-    // use super::super::util::{self, test::gen_sample_file};
+    use super::*;
+    use super::super::param;
+    use super::super::util::{self, test::gen_sample_file};
 
-    // #[test]
-    // fn test_setup() {
-    //     // TODO: move to integrate test
-    //     let sample_dir = Path::new("./sample");
+    #[test]
+    fn test_setup() {
+        // TODO: move to integrate test
+        let sample_dir = Path::new("./sample");
         
-    //     util::init_output_dir(sample_dir, true)
-    //         .expect("error setting up the test sample dir");
+        util::init_output_dir(sample_dir, true)
+            .expect("error setting up the test sample dir");
 
-    //     let input_size: usize = 1024; // 1k, just a simple quick test here
-    //     let input_path = sample_dir.join("sample.dat");
+        let input_size: usize = 32 * 1024;
+        let input_path = sample_dir.join("sample.dat");
 
-    //     gen_sample_file::<PedersenHasher>(input_size / 32, input_path.as_path()).unwrap();
+        gen_sample_file::<PedersenHasher>(input_size / 32, input_path.as_path()).unwrap();
 
-    //     setup_inner::<PedersenHasher>(input_path.as_path(), sample_dir)
-    //         .expect("failed to setup");
-    // }
+        let replica_id = param::new_replica_id::<PedersenHasher>();
+        let (scfg, sp) = param::default_setup(&input_path, sample_dir, param::new_porep_id()).unwrap();
+
+        setup_inner::<BinaryMerkleTree<PedersenHasher>>(
+            &input_path, sample_dir, 
+            &sp, &scfg,
+            &replica_id,
+        ).expect("failed to setup");
+    }
 
     // #[test]
     // fn test_prove_and_verify() {

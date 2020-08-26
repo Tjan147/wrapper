@@ -153,11 +153,6 @@ pub(crate) mod test {
         let output_dir = Path::new("./sample");
         let sample_file = output_dir.join("sample.dat");
 
-        init_output_dir(output_dir, true)
-            .expect("cannot setup test sample dir");
-        gen_sample_file::<PedersenHasher>(128, &sample_file)
-            .expect("cannot setup test sample file");
-
         let example1 = target_file_name(&sample_file, &PathBuf::from("./another_example"), "txt")
             .expect("error create the output filename");
         assert_eq!(Path::new("./another_example/sample.txt"), example1);
@@ -180,19 +175,5 @@ pub(crate) mod test {
         assert_eq!(content.as_bytes(), load_map.deref());
 
         fs::remove_file(gen_path).expect("failed to delete the sample.dat");
-    }
-
-    // this is actually used as an test sample for benchmark
-    // TODO: move this logic to integrate test logic later
-    #[test]
-    #[ignore]
-    fn gen_one_giga_bytes_sample() {
-        let sample_dir = Path::new("./sample");
-        init_output_dir(sample_dir, true).expect("failed to setting the sample dir");
-
-        let input_size: usize = 1024 * 1024 * 1024;
-        let input_path = sample_dir.join("sample.dat");
-        
-        gen_sample_file::<PedersenHasher>(input_size / 32, input_path.as_path()).unwrap();
     }
 }

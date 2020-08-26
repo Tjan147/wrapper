@@ -194,7 +194,7 @@ pub fn default_setup(src: &Path, out: &Path, porep_id: [u8; 32]) -> Result<(Stor
     }))
 }
 
-pub fn new_replica_id<H: Hasher>() -> impl Domain {
+pub fn new_replica_id<H: Hasher>() -> <H as Hasher>::Domain {
     let rng = &mut rand::thread_rng();
     H::Domain::random(rng)
 }
