@@ -16,6 +16,10 @@ use common::gen_sample_file;
 const EXAMPLE_DIR: &str = "./sample";
 const EXAMPLE_SRC: &str = "./sample/sample.dat";
 
+// WARNING:
+// experiments running shows that StackedDrg::replicate() require the input data's
+// is of exact 2^N bytes size. For example, a 10 * 1024 input may cause a porep runtime
+// panic while size 16 * 1024/32 * 1024/128 * 1024 works well.
 #[test]
 fn test_workflow_1k_10c() {
     workflow_inner(1024, 10);

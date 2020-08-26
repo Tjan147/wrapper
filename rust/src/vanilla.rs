@@ -120,6 +120,10 @@ mod test {
         util::init_output_dir(sample_dir, true)
             .expect("error setting up the test sample dir");
 
+        // WARNING:
+        // experiments running shows that StackedDrg::replicate() require the input data's
+        // is of exact 2^N bytes size. For example, a 10 * 1024 input may cause a porep runtime
+        // panic while size 16 * 1024/32 * 1024/128 * 1024 works well.
         let input_size: usize = 32 * 1024;
         let input_path = sample_dir.join("sample.dat");
 
@@ -134,18 +138,4 @@ mod test {
             &replica_id,
         ).expect("failed to setup");
     }
-
-    // #[test]
-    // fn test_prove_and_verify() {
-    //     // TODO: move to integrate test
-    //     let sample_path = Path::new("./sample/sample.replica");
-    //     let seed: [u8; 32] = util::new_seed();
-
-    //     prove_inner::<PedersenHasher>(sample_path, seed.clone())
-    //         .expect("failed to prove");
-        
-    //     let res = verify_inner::<PedersenHasher>(sample_path, seed)
-    //         .expect("failed to verify");
-    //     assert!(res);
-    // }
 }
