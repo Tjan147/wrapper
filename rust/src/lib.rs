@@ -1,7 +1,9 @@
-pub mod sentinel;
 pub mod ffi;
 
-mod error;
-mod param;
-mod porep;
-mod util; 
+pub mod error;
+pub mod param;
+pub mod util; 
+
+mod vanilla;
+
+pub use self::vanilla::*;

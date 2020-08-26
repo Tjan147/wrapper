@@ -1,13 +1,17 @@
 use std::convert::{AsRef, From};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+use merkletree::store::StoreConfig;
 use serde::{Deserialize, Serialize};
-use storage_proofs::hasher::{Hasher, Domain};
-use storage_proofs::merkle::{MerkleTreeTrait};
-use storage_proofs::porep::stacked::{LayerChallenges, SetupParams, Tau, PersistentAux, TemporaryAux};
+use storage_proofs::cache_key::CacheKey;
+use storage_proofs::drgraph::BASE_DEGREE;
+use storage_proofs::hasher::{Hasher, Domain, Sha256Hasher};
+use storage_proofs::merkle::MerkleTreeTrait;
+use storage_proofs::porep::stacked::{EXP_DEGREE, BINARY_ARITY, LayerChallenges, SetupParams, Tau, PersistentAux, TemporaryAux};
+use storage_proofs::util::default_rows_to_discard;
 
-use super::error::Result;
+use super::{error::Result, util};
 
 // https://github.com/filecoin-project/rust-fil-proofs/blob/storage-proofs-v4.0.1/fil-proofs-tooling/src/bin/benchy/main.rs#L18
 // here we use the `benchy` default parameters as constant
@@ -20,6 +24,15 @@ pub const DEFAULT_LAYER: usize = 11;
 pub const DEFAULT_MAX_COUNT: usize = 1;
 pub const DEFAULT_PARTITION: usize = 1;
 pub const DEFAULT_K: usize = 0;
+
+pub const EXT_PERSIST_AUX: &str = "p_aux";
+pub const EXT_PERSIST_TAU: &str = "p_tau";
+pub const EXT_POREP_ID: &str = "porep_id";
+pub const EXT_REPLICA: &str = "replica";
+pub const EXT_REPLICA_ID: &str = "replica_id";
+pub const EXT_STORE_CONF: &str = "store_conf";
+pub const EXT_SETUP: &str = "p_sp";
+pub const EXT_TEMP_AUX: &str = "t_aux";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PersistentSetupParam {
@@ -72,8 +85,8 @@ impl<'a, D: Domain, E: Domain> From<&'a Tau<D, E>> for PersistentTau {
 impl PersistentTau {
     pub fn as_tau<Tree, G>(&self) -> Result<Tau<<Tree::Hasher as Hasher>::Domain, <G as Hasher>::Domain>>
     where
-        Tree: 'static + MerkleTreeTrait,
-        G: 'static + Hasher,
+        Tree: MerkleTreeTrait,
+        G: Hasher,
     {
         let comm_d = Domain::try_from_bytes(self.comm_d.as_ref())?;
         let comm_r = Domain::try_from_bytes(self.comm_r.as_ref())?;
@@ -85,36 +98,113 @@ impl PersistentTau {
     }
 }
 
-pub fn into_json<T: Serialize>(param: &T) -> Result<String> {
+fn into_json<T: Serialize>(param: &T) -> Result<String> {
     let data = serde_json::to_string(param)?;
     Ok(data)
 }
 
-pub fn from_json<'a, T: Deserialize<'a>>(s: &'a str) -> Result<T> {
+fn from_json<'a, T: Deserialize<'a>>(s: &'a str) -> Result<T> {
     let inst = serde_json::from_str(s)?;
     Ok(inst)
 }
 
-pub fn restore_replica_id<'a, Tree>(s: &'a str) -> Result<<Tree::Hasher as Hasher>::Domain>
+pub fn replica_id_from_json<'a, Tree>(s: &'a str) -> Result<<Tree::Hasher as Hasher>::Domain>
 where
-    Tree: 'static + MerkleTreeTrait,
+    Tree: MerkleTreeTrait,
 {
     from_json(s)
 }
 
-pub fn restore_p_aux<'a, Tree>(s: &'a str) -> Result<PersistentAux<<Tree::Hasher as Hasher>::Domain>>
-where
-    Tree: 'static + MerkleTreeTrait,
-{
-    from_json(s)
+pub fn setup_params_from_json<'a>(s: &'a str) -> Result<SetupParams> {
+    let p_sp = from_json::<PersistentSetupParam>(s)?;
+    Ok(SetupParams::from(&p_sp))
 }
 
-pub fn restore_t_aux<'a, Tree, G>(s: &'a str) -> Result<TemporaryAux<Tree, G>>
-where
-    Tree: 'static + MerkleTreeTrait,
-    G: 'static + Hasher,
-{
-    from_json(s)
+pub fn store_cfg_from_json<'a>(s: &'a str) -> Result<StoreConfig> {
+    from_json::<StoreConfig>(s)
+}
+
+pub fn save_param<T: Serialize>(replica_path: &Path, param: &T, ext: &str) -> Result<()> {
+    let data = into_json(param)?;
+    let path = util::target_param_file_name(replica_path.as_ref(), ext)?;
+
+    util::write_file(path.as_path(), data.as_bytes())?;
+
+    Ok(())
+}
+
+pub fn save_setup(replica_path: &Path, sp: &SetupParams) -> Result<()> {
+    let p_sp = PersistentSetupParam::from(sp);
+    save_param(replica_path, &p_sp, EXT_SETUP)
+}
+
+pub fn save_tau<D: Domain, E: Domain>(replica_path: &Path, tau: &Tau<D, E>) -> Result<()> {
+    let p_tau = PersistentTau::from(tau);
+    save_param(replica_path, &p_tau, EXT_PERSIST_TAU)
+}
+
+pub fn load_setup(replica_path: &Path) -> Result<SetupParams> {
+    let path = util::target_param_file_name(replica_path, EXT_SETUP)?;
+    let data = fs::read_to_string(&path)?;
+
+    let p_sp = from_json::<PersistentSetupParam>(&data)?;
+
+    Ok(SetupParams::from(&p_sp))
+}
+
+pub fn load_tau<Tree: MerkleTreeTrait, G: Hasher>(
+    replica_path: &Path,
+) -> Result<Tau<<Tree::Hasher as Hasher>::Domain, <G as Hasher>::Domain>> {
+    let path = util::target_param_file_name(replica_path, EXT_PERSIST_TAU)?;
+    let data = fs::read_to_string(&path)?;
+
+    let p_tau = from_json::<PersistentTau>(&data)?;
+
+    p_tau.as_tau::<Tree, G>()
+}
+
+pub fn load_p_aux<Tree: MerkleTreeTrait>(replica_path: &Path) -> Result<PersistentAux<<Tree::Hasher as Hasher>::Domain>> {
+    let path = util::target_param_file_name(replica_path, EXT_PERSIST_AUX)?;
+    let data = fs::read_to_string(&path)?;
+
+    from_json::<PersistentAux<<Tree::Hasher as Hasher>::Domain>>(&data)
+}
+
+pub fn load_t_aux<Tree: MerkleTreeTrait, G: Hasher>(replica_path: &Path) -> Result<TemporaryAux<Tree, G>> {
+    let path = util::target_param_file_name(replica_path, EXT_TEMP_AUX)?;
+    let data = fs::read_to_string(&path)?;
+
+    from_json::<TemporaryAux<Tree, G>>(&data)
+}
+
+pub fn default_setup(src: &Path, out: &Path, porep_id: [u8; 32]) -> Result<(StoreConfig, SetupParams)> {
+    let nodes = util::count_nodes(src)?;
+
+    Ok((StoreConfig::new(
+        out,
+        CacheKey::CommDTree.to_string(),
+        default_rows_to_discard(nodes, BINARY_ARITY),
+    ), 
+    SetupParams{
+        nodes,
+        degree: BASE_DEGREE,
+        expansion_degree: EXP_DEGREE,
+        porep_id,
+        layer_challenges: LayerChallenges::new(DEFAULT_LAYER, DEFAULT_MAX_COUNT),
+    }))
+}
+
+pub fn new_replica_id<H: Hasher>() -> impl Domain {
+    let rng = &mut rand::thread_rng();
+    H::Domain::random(rng)
+}
+
+pub fn new_porep_id() -> [u8; 32] {
+    util::rand_bytes()
+}
+
+pub fn new_chal_seed() -> [u8; 32] {
+    util::rand_bytes()
 }
 
 #[cfg(test)]
@@ -122,33 +212,30 @@ mod test {
     use rand::prelude::*;
     use serde_json;
 
-    use storage_proofs::drgraph::BASE_DEGREE;
     use storage_proofs::hasher::{PedersenHasher, Sha256Hasher};
     use storage_proofs::merkle::BinaryMerkleTree;
-    use storage_proofs::porep::stacked::{EXP_DEGREE, LayerChallenges, SetupParams};
+    use storage_proofs::porep::stacked::SetupParams;
 
     use super::*;
-    use super::super::util;
 
     fn sample_setup_params() -> SetupParams {
-        SetupParams {
-            nodes: random(),
-            degree: BASE_DEGREE,
-            expansion_degree: EXP_DEGREE,
-            porep_id: util::new_seed(),
-            layer_challenges: LayerChallenges::new(DEFAULT_LAYER, DEFAULT_MAX_COUNT),
-        }
+        let path = Path::new(".");
+        let (_, sp) = default_setup(path, path, random())
+            .expect("error create sample SetupParams instance");
+
+        sp
     }
 
     #[test]
     fn test_serde_setup_params() {
         let lhs = sample_setup_params();
+
         let tmp = PersistentSetupParam::from(&lhs);
+        let data = serde_json::to_string(&tmp)
+            .expect("error serialize the PersistSetupParam to json");
 
-        let data = serde_json::to_string(&tmp).unwrap();
-        let another_tmp: PersistentSetupParam = serde_json::from_str(&data).unwrap();
-
-        let rhs = SetupParams::from(&another_tmp);
+        let rhs = setup_params_from_json(&data)
+            .expect("error deserialize the SetupParams from json");
 
         assert_eq!(lhs.nodes, rhs.nodes);
         assert_eq!(lhs.degree, rhs.degree);
@@ -162,12 +249,12 @@ mod test {
     fn test_serde_replica_id() {
         let sample_replica_id_data = r#"[6868552744863790462,18061126747641064871,15229175371992025091,5445982386805143806]"#;
 
-        let replica_id = restore_replica_id::<BinaryMerkleTree<PedersenHasher>>(sample_replica_id_data)
+        let replica_id = replica_id_from_json::<BinaryMerkleTree<PedersenHasher>>(sample_replica_id_data)
             .expect("error restore replica ID object");
         let another_replica_id_data = into_json(&replica_id)
             .expect("error dump the ref replica ID object");
         
-            assert_eq!(sample_replica_id_data, another_replica_id_data);
+        assert_eq!(sample_replica_id_data, another_replica_id_data);
     }
 
     #[test]
@@ -180,9 +267,9 @@ mod test {
             .expect("error restore PersistentTau object");
         let tau = p_tau.as_tau::<BinaryMerkleTree<PedersenHasher>, Sha256Hasher>()
             .expect("as_tau: type convert failed");
-        let p_aux = restore_p_aux::<BinaryMerkleTree<PedersenHasher>>(sample_p_aux_data)
+        let p_aux = from_json::<PersistentAux<<PedersenHasher as Hasher>::Domain>>(sample_p_aux_data)
             .expect("error restore PersistentAux object");
-        let t_aux = restore_t_aux::<BinaryMerkleTree<PedersenHasher>, Sha256Hasher>(sample_t_aux_data)
+        let t_aux = from_json::<TemporaryAux<BinaryMerkleTree<PedersenHasher>, Sha256Hasher>>(sample_t_aux_data)
             .expect("error restore TemporaryAux object");
 
         let another_p_tau = PersistentTau::from(&tau);

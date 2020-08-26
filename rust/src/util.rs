@@ -7,36 +7,55 @@ use std::path::{Path, PathBuf};
 use memmap::{MmapMut, MmapOptions};
 use rand::{rngs::OsRng, Rng};
 
-const NODE_SIZE: u64 = 32;
+const DEFAULT_NODE_SIZE: u64 = 32;
+const DEFAULT_PARAMS_DIR: &str = "params";
 
-pub fn new_seed() -> [u8; 32] {
-    OsRng.gen()
+pub fn rand_bytes() -> [u8; 32] {
+    OsRng.gen() 
 }
 
-pub fn init_output_dir<P: AsRef<Path> + Copy>(path: P, clear_first: bool) -> io::Result<()> {
-    if clear_first && path.as_ref().exists() {
-        fs::remove_dir_all(path)?;
+pub fn mk_default_layout<P: AsRef<Path> + Copy>(dir: P) -> io::Result<()> {
+    fs::create_dir_all(dir.as_ref().join(DEFAULT_PARAMS_DIR))
+}
+
+pub fn init_output_dir<P: AsRef<Path> + Copy>(dir: P, clear_first: bool) -> io::Result<()> {
+    if clear_first && dir.as_ref().exists() {
+        fs::remove_dir_all(dir)?;
     }
 
-    fs::create_dir_all(path)
+    fs::create_dir_all(dir)?;
+    mk_default_layout(dir)
 }
 
-pub fn output_file_name<P: AsRef<Path>>(src_file: P, output_dir: P, ext: &str) -> io::Result<PathBuf> {
-    let name = src_file.as_ref()
+pub fn target_file_name<S: AsRef<OsStr>>(src_file_path: &Path, output_dir: &Path, ext: S) -> io::Result<PathBuf> {
+    let name = src_file_path
         .file_name()
-        .ok_or_else(|| { io::Error::new(ErrorKind::InvalidInput, "cannot extract file's name") })?;
+        .ok_or_else(|| { io::Error::new(ErrorKind::InvalidInput, "cannot extract source file's name") })?;
 
-    let mut res = PathBuf::from(output_dir.as_ref());
+    let mut res = PathBuf::new();
+    res.push(output_dir);
     res.push(name);
-    res.set_extension(OsStr::new(ext));
+    res.set_extension(ext);
 
     Ok(res)
+}
+
+pub fn target_param_file_name<S: AsRef<OsStr>>(replica_path: &Path, ext: S) -> io::Result<PathBuf> {
+    let dir = replica_path
+        .parent()
+        .ok_or_else(|| { io::Error::new(ErrorKind::InvalidInput, "cannot extract target folder's path") })?;
+
+    let mut param_dir = PathBuf::new();
+    param_dir.push(dir);
+    param_dir.push(DEFAULT_PARAMS_DIR);
+    
+    target_file_name(&replica_path, &param_dir, ext)
 }
 
 pub fn count_nodes<P: AsRef<Path>>(path: P) -> io::Result<usize> {
     let file_info = fs::metadata(path)?;
 
-    match (file_info.len() / NODE_SIZE).try_into() {
+    match (file_info.len() / DEFAULT_NODE_SIZE).try_into() {
         Err(e) => {
             return Err(io::Error::new(ErrorKind::Other, e))
         },
@@ -139,7 +158,7 @@ pub(crate) mod test {
         gen_sample_file::<PedersenHasher>(128, &sample_file)
             .expect("cannot setup test sample file");
 
-        let example1 = output_file_name(sample_file, PathBuf::from("./another_example"), "txt")
+        let example1 = target_file_name(&sample_file, &PathBuf::from("./another_example"), "txt")
             .expect("error create the output filename");
         assert_eq!(Path::new("./another_example/sample.txt"), example1);
         let example2 = example1.with_extension("store_conf");
