@@ -15,15 +15,13 @@ use super::{error::Result, util};
 
 // https://github.com/filecoin-project/rust-fil-proofs/blob/storage-proofs-v4.0.1/fil-proofs-tooling/src/bin/benchy/main.rs#L18
 // here we use the `benchy` default parameters as constant
-pub const DEFAULT_LAYER: usize = 11;
-pub const DEFAULT_MAX_COUNT: usize = 1;
-pub const DEFAULT_PARTITION: usize = 1;
-pub const DEFAULT_K: usize = 0; // since we has only 1 sector therefore 0 will always be the input index
+const DEFAULT_LAYER: usize = 11;
+const DEFAULT_MAX_COUNT: usize = 1;
 
-pub const EXT_PERSIST_AUX: &str = "p_aux";
-pub const EXT_PERSIST_TAU: &str = "p_tau";
-pub const EXT_REPLICA: &str = "replica";
-pub const EXT_TEMP_AUX: &str = "t_aux";
+pub(crate) const EXT_PERSIST_AUX: &str = "p_aux";
+pub(crate) const EXT_PERSIST_TAU: &str = "p_tau";
+pub(crate) const EXT_REPLICA: &str = "replica";
+pub(crate) const EXT_TEMP_AUX: &str = "t_aux";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PersistentSetupParam {

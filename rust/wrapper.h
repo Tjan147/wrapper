@@ -14,14 +14,6 @@ extern "C" {
 #include <stdint.h>
 #include <stdlib.h>
 
-#define DEFAULT_K 0
-
-#define DEFAULT_LAYER 11
-
-#define DEFAULT_MAX_COUNT 1
-
-#define DEFAULT_PARTITION 1
-
 uint32_t count_node_num(const char *path_cstr);
 
 char *generate_replica_id(void);

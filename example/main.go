@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"path"
 
 	"github.com/tjan147/wrapper"
@@ -21,15 +20,42 @@ var (
 func main() {
 	exampleFile := path.Join(exampleDir, exampleName)
 
-	// TODO: replace this with wrapper api later
-	if err := os.Mkdir(exampleDir, exampleAttr); err != nil {
+	if err := wrapper.CallInitTargetDir(exampleDir, true); err != nil {
 		panic(err)
 	}
 
-	if err := wrapper.CallGenerateSampleFile(exampleSize, exampleFile); err != nil {
+	if err := wrapper.CallGenSampleFile(exampleSize, exampleFile); err != nil {
 		panic(err)
 	}
 
 	nodes := wrapper.CallCountNodeNum(exampleFile)
-	fmt.Printf("%s is of %d nodes size ...\n", exampleFile, nodes)
+	if nodes == 0 {
+		panic("empty file")
+	}
+
+	replicaID, err := wrapper.CallGenReplicaID()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Replica ID: %s\n", replicaID)
+
+	sp, err := wrapper.CallGenSetupParams(nodes)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Setup Params: %s\n", sp)
+
+	scfg, err := wrapper.CallGenStoreCfg(nodes, exampleDir)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Store Config: %s\n", scfg)
+
+	if err := wrapper.CallPorepSetup(exampleFile, sp, scfg, replicaID); err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("\n--------------------------------------\n")
+	fmt.Printf("|===> WORKFLOW DONE SUCCESSFULLY <===|\n\n")
+	fmt.Printf("--------------------------------------\n")
 }
