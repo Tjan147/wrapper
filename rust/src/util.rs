@@ -101,7 +101,9 @@ pub fn write_file_and_mmap(path: &Path, data: &[u8]) -> io::Result<MmapMut> {
     }
 }
 
-pub fn gen_sample_file<H: Hasher>(nodes: usize, path: &Path) -> io::Result<()> { 
+pub fn gen_sample_file<H: Hasher>(size: usize, path: &Path) -> io::Result<()> { 
+    let nodes = (size as u64) / DEFAULT_NODE_SIZE;
+
     let rng = &mut rand::thread_rng();
     let data: Vec<u8> = (0..nodes)
         .flat_map(|_| {

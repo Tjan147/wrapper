@@ -128,7 +128,7 @@ mod test {
         let input_size: usize = 32 * 1024;
         let input_path = sample_dir.join("sample.dat");
 
-        util::gen_sample_file::<PedersenHasher>(input_size / 32, input_path.as_path()).unwrap();
+        util::gen_sample_file::<PedersenHasher>(input_size, input_path.as_path()).unwrap();
 
         let replica_id = param::new_replica_id::<PedersenHasher>();
         let (scfg, sp) = param::default_setup(&input_path, sample_dir, param::new_porep_id()).unwrap();

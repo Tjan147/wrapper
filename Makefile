@@ -19,10 +19,11 @@ clean_c: gohome
 	rm -rf bin
 
 build_go: build_rust gohome
-	cd cmd && go build -o ../bin/runner-go
+	cd example && go build -o ../bin/workflow-go
 
 clean_go: gohome clean_c
 	rm -rf sample
 
-test: build
-	go test -v
+clean_data: gohome
+	rm -rf sample
+	cd rust rm -rf sample

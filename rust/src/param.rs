@@ -15,15 +15,10 @@ use super::{error::Result, util};
 
 // https://github.com/filecoin-project/rust-fil-proofs/blob/storage-proofs-v4.0.1/fil-proofs-tooling/src/bin/benchy/main.rs#L18
 // here we use the `benchy` default parameters as constant
-// layers = 11
-// partitions = 1
-// challenges = 1
-// k = 0
-
 pub const DEFAULT_LAYER: usize = 11;
 pub const DEFAULT_MAX_COUNT: usize = 1;
 pub const DEFAULT_PARTITION: usize = 1;
-pub const DEFAULT_K: usize = 0;
+pub const DEFAULT_K: usize = 0; // since we has only 1 sector therefore 0 will always be the input index
 
 pub const EXT_PERSIST_AUX: &str = "p_aux";
 pub const EXT_PERSIST_TAU: &str = "p_tau";
