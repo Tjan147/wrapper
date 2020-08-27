@@ -2,20 +2,21 @@ use std::convert::Into;
 use std::path::{Path, PathBuf};
 
 use merkletree::store::StoreConfig;
-use storage_proofs::hasher::{Domain, Hasher, Sha256Hasher};
-use storage_proofs::merkle::{BinaryMerkleTree, MerkleTreeTrait};
-use storage_proofs::porep::stacked::{self, SetupParams, StackedDrg, PersistentAux, TemporaryAux, TemporaryAuxCache, Proof};
+use storage_proofs::hasher::{Hasher, Sha256Hasher};
+use storage_proofs::merkle::MerkleTreeTrait;
+use storage_proofs::porep::stacked::{self, SetupParams, StackedDrg, TemporaryAuxCache, Proof};
 use storage_proofs::porep::PoRep;
 use storage_proofs::proof::ProofScheme;
 
 use super::{error::Result, param, util};
 
 pub fn setup_inner<Tree: 'static + MerkleTreeTrait>(
-    src_file: &Path, out_dir: &Path, 
-    sp: &SetupParams, scfg: &StoreConfig,
+    src_file: &Path, 
+    sp: &SetupParams, 
+    scfg: &StoreConfig,
     replica_id: &<Tree::Hasher as Hasher>::Domain,
 ) -> Result<PathBuf> {
-    let replica_path = util::target_file_name(src_file, out_dir, param::EXT_REPLICA)?;
+    let replica_path = util::target_file_name(src_file, &scfg.path, param::EXT_REPLICA)?;
 
     let pp = StackedDrg::<Tree, Sha256Hasher>::setup(sp)?;
     let data = util::read_file_as_mmap(src_file)?;
@@ -110,7 +111,7 @@ mod test {
 
     use super::*;
     use super::super::param;
-    use super::super::util::{self, test::gen_sample_file};
+    use super::super::util;
 
     #[test]
     fn test_setup() {
@@ -127,14 +128,15 @@ mod test {
         let input_size: usize = 32 * 1024;
         let input_path = sample_dir.join("sample.dat");
 
-        gen_sample_file::<PedersenHasher>(input_size / 32, input_path.as_path()).unwrap();
+        util::gen_sample_file::<PedersenHasher>(input_size / 32, input_path.as_path()).unwrap();
 
         let replica_id = param::new_replica_id::<PedersenHasher>();
         let (scfg, sp) = param::default_setup(&input_path, sample_dir, param::new_porep_id()).unwrap();
 
         setup_inner::<BinaryMerkleTree<PedersenHasher>>(
-            &input_path, sample_dir, 
-            &sp, &scfg,
+            &input_path,
+            &sp, 
+            &scfg,
             &replica_id,
         ).expect("failed to setup");
     }

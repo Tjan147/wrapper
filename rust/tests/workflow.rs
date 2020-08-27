@@ -1,7 +1,5 @@
 extern crate wrapper;
 
-mod common;
-
 use std::path::Path;
 use std::time::Instant;
 
@@ -10,8 +8,6 @@ use storage_proofs::hasher::{Hasher, PedersenHasher};
 use storage_proofs::porep::stacked::SetupParams;
 
 use wrapper::{param, util};
-
-use common::gen_sample_file;
 
 const EXAMPLE_DIR: &str = "./sample";
 const EXAMPLE_SRC: &str = "./sample/sample.dat";
@@ -48,7 +44,7 @@ fn workflow_inner(expected_size: usize, chal_num: u8) {
     
     // create a sample source file with random content
     let src = Path::new(EXAMPLE_SRC);
-    gen_sample_file::<PedersenHasher>(expected_size, src).unwrap();
+    util::gen_sample_file::<PedersenHasher>(expected_size, src).unwrap();
 
     // prepare necessary parameters
     let replica_id = param::new_replica_id::<PedersenHasher>();
@@ -58,11 +54,12 @@ fn workflow_inner(expected_size: usize, chal_num: u8) {
     let start = Instant::now();
     let replica_path = 
         wrapper::setup_inner::<BinaryMerkleTree<PedersenHasher>>(
-            src, dir, 
-            &sp, &scfg, 
+            src,
+            &sp, 
+            &scfg, 
             &replica_id,
         ).unwrap();
-    println!("{}B porep setup costs {:?} ...", expected_size, start.elapsed());
+    println!("{}-Bytes porep setup costs {:?} ...", expected_size, start.elapsed());
 
     // porep challenge session
     let start = Instant::now();

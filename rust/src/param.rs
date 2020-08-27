@@ -1,12 +1,12 @@
 use std::convert::{AsRef, From};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use merkletree::store::StoreConfig;
 use serde::{Deserialize, Serialize};
 use storage_proofs::cache_key::CacheKey;
 use storage_proofs::drgraph::BASE_DEGREE;
-use storage_proofs::hasher::{Hasher, Domain, Sha256Hasher};
+use storage_proofs::hasher::{Hasher, Domain};
 use storage_proofs::merkle::MerkleTreeTrait;
 use storage_proofs::porep::stacked::{EXP_DEGREE, BINARY_ARITY, LayerChallenges, SetupParams, Tau, PersistentAux, TemporaryAux};
 use storage_proofs::util::default_rows_to_discard;
@@ -27,11 +27,7 @@ pub const DEFAULT_K: usize = 0;
 
 pub const EXT_PERSIST_AUX: &str = "p_aux";
 pub const EXT_PERSIST_TAU: &str = "p_tau";
-pub const EXT_POREP_ID: &str = "porep_id";
 pub const EXT_REPLICA: &str = "replica";
-pub const EXT_REPLICA_ID: &str = "replica_id";
-pub const EXT_STORE_CONF: &str = "store_conf";
-pub const EXT_SETUP: &str = "p_sp";
 pub const EXT_TEMP_AUX: &str = "t_aux";
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -98,9 +94,18 @@ impl PersistentTau {
     }
 }
 
-fn into_json<T: Serialize>(param: &T) -> Result<String> {
+pub fn into_json<T: Serialize>(param: &T) -> Result<String> {
     let data = serde_json::to_string(param)?;
     Ok(data)
+}
+
+pub fn replica_id_into_json<H: Hasher>(id: H::Domain) -> Result<String> {
+    into_json(&id)
+}
+
+pub fn setup_params_into_json(sp: &SetupParams) -> Result<String> {
+    let p_sp = PersistentSetupParam::from(sp);
+    into_json(&p_sp)
 }
 
 fn from_json<'a, T: Deserialize<'a>>(s: &'a str) -> Result<T> {
@@ -133,23 +138,9 @@ pub fn save_param<T: Serialize>(replica_path: &Path, param: &T, ext: &str) -> Re
     Ok(())
 }
 
-pub fn save_setup(replica_path: &Path, sp: &SetupParams) -> Result<()> {
-    let p_sp = PersistentSetupParam::from(sp);
-    save_param(replica_path, &p_sp, EXT_SETUP)
-}
-
 pub fn save_tau<D: Domain, E: Domain>(replica_path: &Path, tau: &Tau<D, E>) -> Result<()> {
     let p_tau = PersistentTau::from(tau);
     save_param(replica_path, &p_tau, EXT_PERSIST_TAU)
-}
-
-pub fn load_setup(replica_path: &Path) -> Result<SetupParams> {
-    let path = util::target_param_file_name(replica_path, EXT_SETUP)?;
-    let data = fs::read_to_string(&path)?;
-
-    let p_sp = from_json::<PersistentSetupParam>(&data)?;
-
-    Ok(SetupParams::from(&p_sp))
 }
 
 pub fn load_tau<Tree: MerkleTreeTrait, G: Hasher>(
@@ -199,8 +190,26 @@ pub fn new_replica_id<H: Hasher>() -> <H as Hasher>::Domain {
     H::Domain::random(rng)
 }
 
+pub fn new_store_cfg_with_defaults(nodes: usize, out: &Path) -> StoreConfig {
+    StoreConfig::new(
+        out,
+        CacheKey::CommDTree.to_string(),
+        default_rows_to_discard(nodes, BINARY_ARITY),
+    )
+}
+
 pub fn new_porep_id() -> [u8; 32] {
     util::rand_bytes()
+}
+
+pub fn new_setup_params_with_defaults(nodes: usize) -> SetupParams {
+    SetupParams {
+        nodes,
+        degree: BASE_DEGREE,
+        expansion_degree: EXP_DEGREE,
+        porep_id: new_porep_id(),
+        layer_challenges: LayerChallenges::new(DEFAULT_LAYER, DEFAULT_MAX_COUNT),
+    }
 }
 
 pub fn new_chal_seed() -> [u8; 32] {

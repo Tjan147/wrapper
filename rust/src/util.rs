@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use memmap::{MmapMut, MmapOptions};
 use rand::{rngs::OsRng, Rng};
+use storage_proofs::hasher::{Hasher, Domain};
 
 const DEFAULT_NODE_SIZE: u64 = 32;
 const DEFAULT_PARAMS_DIR: &str = "params";
@@ -100,35 +101,28 @@ pub fn write_file_and_mmap(path: &Path, data: &[u8]) -> io::Result<MmapMut> {
     }
 }
 
+pub fn gen_sample_file<H: Hasher>(nodes: usize, path: &Path) -> io::Result<()> { 
+    let rng = &mut rand::thread_rng();
+    let data: Vec<u8> = (0..nodes)
+        .flat_map(|_| {
+            let v: H::Domain = H::Domain::random(rng);
+            v.into_bytes()
+        })
+        .collect();
+    
+    write_file(path, &data)
+}
+
 #[cfg(test)]
 pub(crate) mod test {
     use std::fs;
-    use std::io;
     use std::ops::Deref;
     use std::path::Path;
 
     use rand;
-    use storage_proofs::hasher::{Domain, Hasher, PedersenHasher};
+    use storage_proofs::hasher::PedersenHasher;
 
     use super::*;
-
-    // helper: create a sample data file
-    pub fn gen_sample_file<H: 'static>(nodes: usize, path: &Path) -> io::Result<usize> 
-    where
-        H: Hasher,
-    { 
-        let rng = &mut rand::thread_rng();
-        let data: Vec<u8> = (0..nodes)
-            .flat_map(|_| {
-                let v: H::Domain = H::Domain::random(rng);
-                v.into_bytes()
-            })
-            .collect();
-        
-        write_file(path, &data).expect("error saving temporary sample data");
-
-        Ok(data.len())
-    }
 
     #[test]
     fn test_dir_init() {
