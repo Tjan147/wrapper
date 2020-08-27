@@ -16,6 +16,8 @@ extern "C" {
 
 uint32_t count_node_num(const char *path_cstr);
 
+char *generate_challenge(void);
+
 char *generate_replica_id(void);
 
 char *generate_sample_file(uint32_t expected_size, const char *path_cstr);
@@ -26,10 +28,22 @@ char *generate_store_config(uint32_t node_num, const char *dir_cstr);
 
 char *initialize_target_dir(const char *dir_cstr, bool need_clean);
 
+char *porep_prove(const char *replica_path_cstr,
+                  const char *sp_data_cstr,
+                  const char *replica_id_cstr,
+                  const char *chal_cstr,
+                  const char *proof_path_cstr);
+
 char *porep_setup(const char *src_path_cstr,
                   const char *sp_data_cstr,
                   const char *scfg_data_cstr,
                   const char *replica_id_cstr);
+
+char *porep_verify(const char *replica_path_cstr,
+                   const char *sp_data_cstr,
+                   const char *replica_id_cstr,
+                   const char *chal_cstr,
+                   const char *proof_path_cstr);
 
 void release(char *s);
 

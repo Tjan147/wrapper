@@ -6,9 +6,9 @@ use merkletree::store::StoreConfig;
 use serde::{Deserialize, Serialize};
 use storage_proofs::cache_key::CacheKey;
 use storage_proofs::drgraph::BASE_DEGREE;
-use storage_proofs::hasher::{Hasher, Domain};
+use storage_proofs::hasher::{Domain, Hasher, Sha256Hasher};
 use storage_proofs::merkle::MerkleTreeTrait;
-use storage_proofs::porep::stacked::{EXP_DEGREE, BINARY_ARITY, LayerChallenges, SetupParams, Tau, PersistentAux, TemporaryAux};
+use storage_proofs::porep::stacked::{BINARY_ARITY, EXP_DEGREE, LayerChallenges, Proof, PersistentAux, SetupParams, Tau, TemporaryAux};
 use storage_proofs::util::default_rows_to_discard;
 
 use super::{error::Result, util};
@@ -122,6 +122,17 @@ pub fn store_cfg_from_json<'a>(s: &'a str) -> Result<StoreConfig> {
     from_json::<StoreConfig>(s)
 }
 
+pub fn chal_seed_from_json<'a>(s: &'a str) -> Result<[u8; 32]> {
+    from_json::<[u8; 32]>(s)
+}
+
+pub fn proof_from_json<'a, Tree>(s: &'a str) -> Result<Vec<Vec<Proof<Tree, Sha256Hasher>>>>
+where
+    Tree: MerkleTreeTrait,
+{
+    from_json(s)
+}
+
 pub fn save_param<T: Serialize>(replica_path: &Path, param: &T, ext: &str) -> Result<()> {
     let data = into_json(param)?;
     let path = util::target_param_file_name(replica_path.as_ref(), ext)?;
@@ -159,6 +170,12 @@ pub fn load_t_aux<Tree: MerkleTreeTrait, G: Hasher>(replica_path: &Path) -> Resu
     let data = fs::read_to_string(&path)?;
 
     from_json::<TemporaryAux<Tree, G>>(&data)
+}
+
+pub fn load_proof<Tree: MerkleTreeTrait>(proof_path: &Path) -> Result<Vec<Vec<Proof<Tree, Sha256Hasher>>>> {
+    let data = fs::read_to_string(&proof_path)?;
+
+    proof_from_json::<Tree>(&data)
 }
 
 pub fn default_setup(src: &Path, out: &Path, porep_id: [u8; 32]) -> Result<(StoreConfig, SetupParams)> {
