@@ -27,6 +27,14 @@ func handleJSONResult(res string, prefix string) (string, error) {
 	return "", fmt.Errorf("%s: %s", prefix, res)
 }
 
+
+func handlePathResult(res string, prefix string) (string, error) {
+	if FileExists(res) {
+		return res, nil
+	}
+	return "", fmt.Errorf("%s: %s", prefix, res)
+}
+
 // CallInitTargetDir wraps the routine:
 // `char *initialize_target_dir(const char *dir_cstr, bool need_clean)`
 func CallInitTargetDir(dirPath string, cleanFirst bool) error {
@@ -83,11 +91,53 @@ func CallGenStoreCfg(nodes uint32, dirPath string) (string, error) {
 //                   const char *scfg_data_cstr,
 //                   const char *replica_id_cstr)
 // ```
-func CallPorepSetup(srcPath, sp, scfg, replicaID string) error {
+func CallPorepSetup(srcPath, sp, scfg, replicaID string) (string, error) {
 	ptr := C.porep_setup(
 		C.CString(srcPath), C.CString(sp), C.CString(scfg), C.CString(replicaID),
 	)
 	defer C.release(ptr)
 
-	return handleUnitResult(C.GoString(ptr), "PorepSetup")
+	return handlePathResult(C.GoString(ptr), "PorepSetup")
+}
+
+// CallPorepChallenge wraps the routine: `char *generate_challenge(void)`
+func CallPorepChallenge() (string, error) {
+	ptr := C.generate_challenge()
+	defer C.release(ptr)
+
+	return handleJSONResult(C.GoString(ptr), "PorepChallenge")
+}
+
+// CallPorepProve wraps the routine:
+// ```c
+// char *porep_prove(const char *replica_path_cstr,
+//                   const char *sp_data_cstr,
+//                   const char *replica_id_cstr,
+//                   const char *chal_cstr,
+//                   const char *proof_path_cstr);
+// ```
+func CallPorepProve(replicaPath, sp, replicaID, chal, proofPath string) error {
+	ptr := C.porep_prove(
+		C.CString(replicaPath), C.CString(sp), C.CString(replicaID), C.CString(chal), C.CString(proofPath),
+	)
+	defer C.release(ptr)
+
+	return handleUnitResult(C.GoString(ptr), "PorepProve")
+}
+
+// CallPorepVerify wraps the routine:
+// ```c
+// char *porep_verify(const char *replica_path_cstr,
+//                    const char *sp_data_cstr,
+//                    const char *replica_id_cstr,
+//                    const char *chal_cstr,
+//                    const char *proof_path_cstr);
+// ```
+func CallPorepVerify(replicaPath, sp, replicaID, chal, proofPath string) error {
+	ptr := C.porep_verify(
+		C.CString(replicaPath), C.CString(sp), C.CString(replicaID), C.CString(chal), C.CString(proofPath),
+	)
+	defer C.release(ptr)
+
+	return handleUnitResult(C.GoString(ptr), "PorepVerify")
 }
