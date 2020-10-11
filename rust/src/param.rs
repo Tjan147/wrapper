@@ -16,7 +16,7 @@ use super::{error::Result, util};
 // https://github.com/filecoin-project/rust-fil-proofs/blob/storage-proofs-v4.0.1/fil-proofs-tooling/src/bin/benchy/main.rs#L18
 // here we use the `benchy` default parameters as constant
 const DEFAULT_LAYER: usize = 11;
-const DEFAULT_MAX_COUNT: usize = 1;
+pub(crate) const DEFAULT_MAX_COUNT: usize = 1;
 
 pub(crate) const EXT_PERSIST_AUX: &str = "p_aux";
 pub(crate) const EXT_PERSIST_TAU: &str = "p_tau";
@@ -186,7 +186,7 @@ pub fn default_setup(src: &Path, out: &Path, porep_id: [u8; 32]) -> Result<(Stor
         CacheKey::CommDTree.to_string(),
         default_rows_to_discard(nodes, BINARY_ARITY),
     ), 
-    SetupParams{
+    SetupParams {
         nodes,
         degree: BASE_DEGREE,
         expansion_degree: EXP_DEGREE,

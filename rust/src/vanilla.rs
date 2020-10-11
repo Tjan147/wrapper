@@ -55,6 +55,7 @@ pub fn prove_inner<Tree: 'static + MerkleTreeTrait>(
         seed: chal_seed,
         tau: Some(tau),
         k: Some(k),
+        porep_id: sp.porep_id.clone(),
     };
 
     let t_aux = param::load_t_aux::<Tree, Sha256Hasher>(output_path)?;
@@ -91,6 +92,7 @@ pub fn verify_inner<Tree: 'static + MerkleTreeTrait>(
         seed: chal_seed,
         tau: Some(tau),
         k: Some(k),
+        porep_id: sp.porep_id.clone(),
     };
 
     let res = StackedDrg::<Tree, Sha256Hasher>::verify_all_partitions(
