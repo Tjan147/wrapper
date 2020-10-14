@@ -43,7 +43,7 @@ func CreateFakeDataFile(path string, size uint64) {
 
 		left -= fakeDataBuffSize
 	}
-	if left > 0 {
+	if left > 1 {
 		buf = make([]byte, left)
 
 		if _, err := rand.Read(buf); err != nil {

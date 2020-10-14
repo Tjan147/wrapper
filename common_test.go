@@ -32,7 +32,6 @@ func TestCreateFakeFile(t *testing.T) {
 	info, err = os.Stat(samplePath)
 	require.NoError(t, err)
 	require.Equal(t, sampleSize2, uint64(info.Size()))
-	fmt.Println("pass")
 
 	sampleSize3 := uint64(2559)
 	CreateFakeDataFile(samplePath, sampleSize3)
