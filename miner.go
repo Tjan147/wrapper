@@ -23,7 +23,7 @@ const (
 	DEFAULTSTAGEDMODE = 0644
 
 	DEFAULTCACHENAME = "cache"
-	DEFAULTCACHEMODE = 0644
+	DEFAULTCACHEMODE = 0755
 )
 
 // Miner is the `storage` part in this demo
@@ -119,12 +119,10 @@ type CutDetail struct {
 
 // AssemblePieces tries to assemble pieces
 func (m *Miner) AssemblePieces(staged *os.File, piecePaths []string) (
-	left abi.UnpaddedPieceSize,
-	cd *CutDetail,
+	left, total abi.UnpaddedPieceSize,
 	pi []abi.PieceInfo,
 	err error,
 ) {
-	cd = new(CutDetail)
 	pi = make([]abi.PieceInfo, 0)
 	left = m.SectorUnpaddedSpace
 	existing := make([]abi.UnpaddedPieceSize, 0)
@@ -139,12 +137,6 @@ func (m *Miner) AssemblePieces(staged *os.File, piecePaths []string) (
 			return
 		}
 
-		len := uint64(meta.Size())
-		if len > uint64(left) {
-			cd.Path = p
-			cd.Offset = uint64(left)
-		}
-
 		piece, innerErr := os.Open(p)
 		if innerErr != nil {
 			err = innerErr
@@ -153,17 +145,17 @@ func (m *Miner) AssemblePieces(staged *os.File, piecePaths []string) (
 		defer piece.Close()
 
 		var pieceCID cid.Cid
-		left, _, pieceCID, innerErr = m.FilPiece(piece, abi.UnpaddedPieceSize(len), staged, existing)
+		left, total, pieceCID, innerErr = m.FilPiece(piece, abi.UnpaddedPieceSize(meta.Size()), staged, existing)
 		if innerErr != nil {
 			err = innerErr
 			return
 		}
 
 		pi = append(pi, abi.PieceInfo{
-			Size:     abi.UnpaddedPieceSize(len).Padded(),
+			Size:     abi.UnpaddedPieceSize(meta.Size()).Padded(),
 			PieceCID: pieceCID,
 		})
-		existing = append(existing, abi.UnpaddedPieceSize(len))
+		existing = append(existing, abi.UnpaddedPieceSize(meta.Size()))
 	}
 
 	return

@@ -12,14 +12,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	EX1PIECE1SIZE = 1000
-	EX1PIECE2SIZE = 900
-	EX1PIECE3SIZE = 255
+var (
+	EX1PIECE1SIZE = UnpaddedSpace(1024)
+	EX1PIECE2SIZE = UnpaddedSpace(512)
+	EX1PIECE3SIZE = UnpaddedSpace(512)
 
-	EX2PIECESIZE = 2032
+	EX2PIECESIZE = UnpaddedSpace(2048)
 
-	EX3PIECESIZE = 1000
+	EX3PIECE1SIZE = UnpaddedSpace(512)
+	EX3PIECE2SIZE = UnpaddedSpace(256)
+	EX3PIECE3SIZE = UnpaddedSpace(128)
+	EX3PIECE4SIZE = UnpaddedSpace(64)
+	EX3PIECE5SIZE = UnpaddedSpace(32)
 
 	PIECENAMEPATTERN = "%s_%d.dat"
 )
@@ -29,19 +33,23 @@ func getTestPieceName(dir, prefix string, size uint64) string {
 }
 
 func createTestPieces(t *testing.T, dir string) {
-	require.NoError(t, os.Mkdir(dir, 0666))
+	require.NoError(t, os.Mkdir(dir, 0755))
 
 	// create pieces for example cases
-	// example case 1: 1000B + 900B + 255B
-	require.NoError(t, CreateFakeDataFile(getTestPieceName(dir, "ex1", EX1PIECE1SIZE), EX1PIECE1SIZE))
-	require.NoError(t, CreateFakeDataFile(getTestPieceName(dir, "ex1", EX1PIECE2SIZE), EX1PIECE2SIZE))
-	require.NoError(t, CreateFakeDataFile(getTestPieceName(dir, "ex1", EX1PIECE3SIZE), EX1PIECE3SIZE))
+	// example case 1: 255B + 900B + 1023B
+	require.NoError(t, CreateFakeDataFile(getTestPieceName(dir, "ex1_1", uint64(EX1PIECE1SIZE)), uint64(EX1PIECE1SIZE)))
+	require.NoError(t, CreateFakeDataFile(getTestPieceName(dir, "ex1_2", uint64(EX1PIECE2SIZE)), uint64(EX1PIECE2SIZE)))
+	require.NoError(t, CreateFakeDataFile(getTestPieceName(dir, "ex1_3", uint64(EX1PIECE3SIZE)), uint64(EX1PIECE3SIZE)))
 
 	// example case 2: 2032
-	require.NoError(t, CreateFakeDataFile(getTestPieceName(dir, "ex2", EX2PIECESIZE), EX2PIECESIZE))
+	require.NoError(t, CreateFakeDataFile(getTestPieceName(dir, "ex2", uint64(EX2PIECESIZE)), uint64(EX2PIECESIZE)))
 
 	// example case 3: 1000
-	require.NoError(t, CreateFakeDataFile(getTestPieceName(dir, "ex3", EX3PIECESIZE), EX3PIECESIZE))
+	require.NoError(t, CreateFakeDataFile(getTestPieceName(dir, "ex3_1", uint64(EX3PIECE1SIZE)), uint64(EX3PIECE1SIZE)))
+	require.NoError(t, CreateFakeDataFile(getTestPieceName(dir, "ex3_2", uint64(EX3PIECE2SIZE)), uint64(EX3PIECE2SIZE)))
+	require.NoError(t, CreateFakeDataFile(getTestPieceName(dir, "ex3_3", uint64(EX3PIECE3SIZE)), uint64(EX3PIECE3SIZE)))
+	require.NoError(t, CreateFakeDataFile(getTestPieceName(dir, "ex3_4", uint64(EX3PIECE4SIZE)), uint64(EX3PIECE4SIZE)))
+	require.NoError(t, CreateFakeDataFile(getTestPieceName(dir, "ex3_5", uint64(EX3PIECE5SIZE)), uint64(EX3PIECE5SIZE)))
 }
 
 func clearTestPieces(t *testing.T, dir string) {
@@ -66,8 +74,8 @@ func runMinerAssemblePieces(
 	dir string, pieces []string,
 	expectedLeft uint64,
 ) {
-	require.NoError(t, os.Mkdir(dir, fakeDataFileMode))
-	defer require.NoError(t, os.RemoveAll(dir))
+	require.NoError(t, os.Mkdir(dir, 0755))
+	//defer require.NoError(t, os.RemoveAll(dir))
 
 	miner, err := NewMiner(rand.Uint64(), abi.RegisteredSealProof_StackedDrg2KiBV1)
 	require.NoError(t, err)
@@ -75,11 +83,10 @@ func runMinerAssemblePieces(
 	staged, _, _, err := miner.InitSectorDir(dir)
 	defer require.NoError(t, err)
 
-	left, cd, pi, err := miner.AssemblePieces(staged, pieces)
+	left, total, pi, err := miner.AssemblePieces(staged, pieces)
 	require.NoError(t, err)
-	require.Equal(t, expectedLeft, uint64(left))
 
-	t.Logf("runMinerAssemblePieces(%s): %s\n", dir, sprintCutDetail(cd))
+	t.Logf("runMinerAssemblePieces(%s): %d, %d\n", dir, left, total)
 	for _, iter := range pi {
 		t.Logf("runMinerAssemblePieces(%s): %s\n", dir, sprintPieceInfo(iter))
 	}
@@ -90,9 +97,33 @@ func TestAssemblePiecesExample1(t *testing.T) {
 	defer clearTestPieces(t, "./ExamplePieces")
 
 	pieces := []string{
-		getTestPieceName("./ExamplePieces", "ex1", EX1PIECE1SIZE),
-		getTestPieceName("./ExamplePieces", "ex1", EX1PIECE2SIZE),
-		getTestPieceName("./ExamplePieces", "ex1", EX1PIECE3SIZE),
+		getTestPieceName("./ExamplePieces", "ex1_1", uint64(EX1PIECE1SIZE)),
+		getTestPieceName("./ExamplePieces", "ex1_2", uint64(EX1PIECE2SIZE)),
+		getTestPieceName("./ExamplePieces", "ex1_3", uint64(EX1PIECE3SIZE)),
 	}
 	runMinerAssemblePieces(t, "./AssemblePiecesExample1", pieces, 0)
+}
+
+func TestAssemblePiecesExample2(t *testing.T) {
+	createTestPieces(t, "./ExamplePieces")
+	defer clearTestPieces(t, "./ExamplePieces")
+
+	pieces := []string{
+		getTestPieceName("./ExamplePieces", "ex2", uint64(EX2PIECESIZE)),
+	}
+	runMinerAssemblePieces(t, "./AssemblePiecesExample2", pieces, 0)
+}
+
+func TestAssemblePiecesExample3(t *testing.T) {
+	createTestPieces(t, "./ExamplePieces")
+	defer clearTestPieces(t, "./ExamplePieces")
+
+	pieces := []string{
+		getTestPieceName("./ExamplePieces", "ex3_1", uint64(EX3PIECE1SIZE)),
+		getTestPieceName("./ExamplePieces", "ex3_2", uint64(EX3PIECE2SIZE)),
+		getTestPieceName("./ExamplePieces", "ex3_3", uint64(EX3PIECE3SIZE)),
+		getTestPieceName("./ExamplePieces", "ex3_4", uint64(EX3PIECE4SIZE)),
+		getTestPieceName("./ExamplePieces", "ex3_5", uint64(EX3PIECE5SIZE)),
+	}
+	runMinerAssemblePieces(t, "./AssemblePiecesExample3", pieces, 0)
 }
