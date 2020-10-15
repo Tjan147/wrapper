@@ -28,31 +28,39 @@ const (
 
 // Miner is the `storage` part in this demo
 type Miner struct {
-	ID        abi.ActorID
-	ProofType abi.RegisteredSealProof
+	ID                  abi.ActorID
+	ProofType           abi.RegisteredSealProof
+	SectorUnpaddedSpace abi.UnpaddedPieceSize
 }
 
 // NewMiner as the factory
-func NewMiner(givenID uint64, givenType abi.RegisteredSealProof) Miner {
-	return Miner{
-		ID:        abi.ActorID(givenID),
-		ProofType: givenType,
+func NewMiner(givenID uint64, givenType abi.RegisteredSealProof) (*Miner, error) {
+	sectorSize, err := givenType.SectorSize()
+	if err != nil {
+		return nil, err
 	}
+	unpaddedSpace := UnpaddedSpace(uint64(sectorSize))
+
+	return &Miner{
+		ID:                  abi.ActorID(givenID),
+		ProofType:           givenType,
+		SectorUnpaddedSpace: unpaddedSpace,
+	}, nil
 }
 
-// CreateStagedSector will:
+// InitSectorDir will:
 // 1. create a staged file to assemble the data pieces
 // 2. create a sector file
 // 3. create a cache dir for setup operation
-func (m *Miner) CreateStagedSector(p string) (staged *os.File, sector, cache string, err error) {
-	sector = path.Join(p, DEFAULTSECTORNAME)
+func (m *Miner) InitSectorDir(dir string) (staged *os.File, sector, cache string, err error) {
+	sector = path.Join(dir, DEFAULTSECTORNAME)
 	file, err := os.OpenFile(sector, os.O_CREATE|os.O_RDWR, DEFAULTSECTORMODE)
 	if err != nil {
 		return
 	}
-	defer file.Close()
+	file.Close()
 
-	stagedPath := path.Join(p, DEFAULTSTAGEDNAME)
+	stagedPath := path.Join(dir, DEFAULTSTAGEDNAME)
 	staged, err = os.OpenFile(stagedPath, os.O_CREATE|os.O_RDWR, DEFAULTSTAGEDMODE)
 	if err != nil {
 		os.Remove(sector)
@@ -60,7 +68,7 @@ func (m *Miner) CreateStagedSector(p string) (staged *os.File, sector, cache str
 		return
 	}
 
-	cache = path.Join(p, DEFAULTCACHENAME)
+	cache = path.Join(dir, DEFAULTCACHENAME)
 	if err = os.Mkdir(cache, DEFAULTCACHEMODE); err != nil {
 		staged.Close()
 		os.Remove(stagedPath)
@@ -87,6 +95,8 @@ func (m *Miner) FilPiece(
 			pieceLen,
 			stagedFile,
 		)
+
+		left -= pieceLen
 	} else {
 		// non-first write
 		left, total, contentID, callErr = ffi.WriteWithAlignment(
@@ -96,6 +106,64 @@ func (m *Miner) FilPiece(
 			stagedFile,
 			existingPieces,
 		)
+	}
+
+	return
+}
+
+// CutDetail show the stop point of a pieces array
+type CutDetail struct {
+	Path   string `json:"path"`
+	Offset uint64 `json:"Offset"`
+}
+
+// AssemblePieces tries to assemble pieces
+func (m *Miner) AssemblePieces(staged *os.File, piecePaths []string) (
+	left abi.UnpaddedPieceSize,
+	cd *CutDetail,
+	pi []abi.PieceInfo,
+	err error,
+) {
+	cd = new(CutDetail)
+	pi = make([]abi.PieceInfo, 0)
+	left = m.SectorUnpaddedSpace
+	existing := make([]abi.UnpaddedPieceSize, 0)
+	for _, p := range piecePaths {
+		if left == 0 {
+			break
+		}
+
+		meta, innerErr := os.Stat(p)
+		if innerErr != nil {
+			err = innerErr
+			return
+		}
+
+		len := uint64(meta.Size())
+		if len > uint64(left) {
+			cd.Path = p
+			cd.Offset = uint64(left)
+		}
+
+		piece, innerErr := os.Open(p)
+		if innerErr != nil {
+			err = innerErr
+			return
+		}
+		defer piece.Close()
+
+		var pieceCID cid.Cid
+		left, _, pieceCID, innerErr = m.FilPiece(piece, abi.UnpaddedPieceSize(len), staged, existing)
+		if innerErr != nil {
+			err = innerErr
+			return
+		}
+
+		pi = append(pi, abi.PieceInfo{
+			Size:     abi.UnpaddedPieceSize(len).Padded(),
+			PieceCID: pieceCID,
+		})
+		existing = append(existing, abi.UnpaddedPieceSize(len))
 	}
 
 	return

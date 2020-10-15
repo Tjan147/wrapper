@@ -22,23 +22,23 @@ const (
 )
 
 // CreateFakeDataFile used for test purpose only
-func CreateFakeDataFile(path string, size uint64) {
+func CreateFakeDataFile(path string, size uint64) error {
 	left := size
 
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, fakeDataFileMode)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer file.Close()
 
 	buf := make([]byte, fakeDataBuffSize)
 	for left >= fakeDataBuffSize {
 		if _, err := rand.Read(buf); err != nil {
-			panic(err)
+			return err
 		}
 
 		if _, err := file.Write(buf); err != nil {
-			panic(err)
+			return err
 		}
 
 		left -= fakeDataBuffSize
@@ -47,11 +47,13 @@ func CreateFakeDataFile(path string, size uint64) {
 		buf = make([]byte, left)
 
 		if _, err := rand.Read(buf); err != nil {
-			panic(err)
+			return err
 		}
 
 		if _, err := file.Write(buf); err != nil {
-			panic(err)
+			return err
 		}
 	}
+
+	return nil
 }
