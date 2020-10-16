@@ -127,10 +127,6 @@ func (m *Miner) AssemblePieces(staged *os.File, piecePaths []string) (
 	left = m.SectorUnpaddedSpace
 	existing := make([]abi.UnpaddedPieceSize, 0)
 	for _, p := range piecePaths {
-		if left == 0 {
-			break
-		}
-
 		meta, innerErr := os.Stat(p)
 		if innerErr != nil {
 			err = innerErr
