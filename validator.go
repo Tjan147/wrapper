@@ -21,14 +21,17 @@ type Validator struct {
 	challengeSet   abi.InteractiveSealRandomness
 }
 
+// RANDBUFLEN is the length of random bytes
+const RANDBUFLEN = 32
+
 // PoRepChallenge fire a challenge
 func (v *Validator) PoRepChallenge() abi.InteractiveSealRandomness {
-	ret := make([]byte, 16)
+	ret := make([]byte, RANDBUFLEN)
 	if _, err := rand.Read(ret); err != nil {
 		panic(err)
 	}
 
-	return ret
+	return abi.InteractiveSealRandomness(ret)
 }
 
 // PoRepVerify validate the proof commit by miner

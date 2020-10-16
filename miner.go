@@ -34,7 +34,7 @@ type Miner struct {
 }
 
 // NewMiner as the factory
-func NewMiner(givenID uint64, givenType abi.RegisteredSealProof) (*Miner, error) {
+func NewMiner(givenID int64, givenType abi.RegisteredSealProof) (*Miner, error) {
 	sectorSize, err := givenType.SectorSize()
 	if err != nil {
 		return nil, err
@@ -109,12 +109,6 @@ func (m *Miner) FilPiece(
 	}
 
 	return
-}
-
-// CutDetail show the stop point of a pieces array
-type CutDetail struct {
-	Path   string `json:"path"`
-	Offset uint64 `json:"Offset"`
 }
 
 // AssemblePieces tries to assemble pieces

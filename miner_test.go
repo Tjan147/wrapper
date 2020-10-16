@@ -1,12 +1,12 @@
 package wrapper
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
 	"path"
 	"testing"
+	"time"
 
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/stretchr/testify/require"
@@ -35,6 +35,8 @@ func getTestPieceName(dir, prefix string, size uint64) string {
 }
 
 func createTestPieces(t *testing.T, dir string) {
+	rand.Seed(time.Now().UnixNano())
+
 	require.NoError(t, os.Mkdir(dir, 0755))
 
 	// create pieces for example cases
@@ -61,66 +63,94 @@ func clearTestPieces(t *testing.T, dir string) {
 }
 
 func sprintPieceInfo(info abi.PieceInfo) string {
-	return fmt.Sprintf("{ Size: %dB, CID: %s }", uint64(info.Size), info.PieceCID.String())
+	return fmt.Sprintf("{ Size: %d, CID: %s }", uint64(info.Size), info.PieceCID.String())
 }
 
-func sprintCutDetail(cd *CutDetail) string {
-	content, err := json.Marshal(cd)
-	if err != nil {
+func prettySprintPieceInfos(infos []abi.PieceInfo) string {
+	ret := "{\n"
+	for _, i := range infos {
+		ret += fmt.Sprintf("\t%s,\n", sprintPieceInfo(i))
+	}
+	return ret + "}\n"
+}
+
+func getRandSectorNum() abi.SectorNumber {
+	return abi.SectorNumber(rand.Uint64())
+}
+
+func getRandStatementID() abi.SealRandomness {
+	ret := make([]byte, RANDBUFLEN)
+	if _, err := rand.Read(ret); err != nil {
 		panic(err)
 	}
 
-	return string(content)
+	return abi.SealRandomness(ret)
 }
 
-func runMinerAssemblePieces(
+func assemblePieces(
 	t *testing.T,
-	typ abi.RegisteredSealProof,
+	miner *Miner,
 	dir string, pieces []string,
 	expectedLeft uint64,
-) {
+	needClear bool,
+) (stagedPath, sectorPath, cachePath string, pieceInfos []abi.PieceInfo) {
 	require.NoError(t, os.Mkdir(dir, 0755))
-	defer require.NoError(t, os.RemoveAll(dir))
 
-	miner, err := NewMiner(rand.Uint64(), typ)
+	staged, sectorPath, cachePath, err := miner.InitSectorDir(dir)
+	require.NoError(t, err)
+	stagedPath = staged.Name()
 
-	staged, _, _, err := miner.InitSectorDir(dir)
-	defer require.NoError(t, err)
-
-	left, total, pi, err := miner.AssemblePieces(staged, pieces)
+	_, _, pieceInfos, err = miner.AssemblePieces(staged, pieces)
 	require.NoError(t, err)
 
-	t.Logf("runMinerAssemblePieces(%s): %d, %d\n", dir, left, total)
-	for _, iter := range pi {
-		t.Logf("runMinerAssemblePieces(%s): %s\n", dir, sprintPieceInfo(iter))
+	stagedMeta, err := staged.Stat()
+	require.NoError(t, err)
+	sectorSize, err := miner.ProofType.SectorSize()
+	require.NoError(t, err)
+	t.Logf("assemblePieces(%d): %d, %s", sectorSize, stagedMeta.Size(), prettySprintPieceInfos(pieceInfos))
+
+	require.NoError(t, staged.Close())
+	if needClear {
+		require.NoError(t, os.RemoveAll(dir))
 	}
+
+	return
 }
 
 func TestAssemblePiecesExample1(t *testing.T) {
 	createTestPieces(t, "./ExamplePieces")
 	defer clearTestPieces(t, "./ExamplePieces")
 
+	miner, err := NewMiner(rand.Int63(), abi.RegisteredSealProof_StackedDrg2KiBV1)
+	require.NoError(t, err)
+
 	pieces := []string{
 		getTestPieceName("./ExamplePieces", "ex1_1", uint64(EX1PIECE1SIZE)),
 		getTestPieceName("./ExamplePieces", "ex1_2", uint64(EX1PIECE2SIZE)),
 		getTestPieceName("./ExamplePieces", "ex1_3", uint64(EX1PIECE3SIZE)),
 	}
-	runMinerAssemblePieces(t, abi.RegisteredSealProof_StackedDrg2KiBV1, "./AssemblePiecesExample1", pieces, 0)
+	assemblePieces(t, miner, "./AssemblePiecesEx1", pieces, 0, true)
 }
 
 func TestAssemblePiecesExample2(t *testing.T) {
 	createTestPieces(t, "./ExamplePieces")
 	defer clearTestPieces(t, "./ExamplePieces")
 
+	miner, err := NewMiner(rand.Int63(), abi.RegisteredSealProof_StackedDrg2KiBV1)
+	require.NoError(t, err)
+
 	pieces := []string{
 		getTestPieceName("./ExamplePieces", "ex2", uint64(EX2PIECESIZE)),
 	}
-	runMinerAssemblePieces(t, abi.RegisteredSealProof_StackedDrg2KiBV1, "./AssemblePiecesExample2", pieces, 0)
+	assemblePieces(t, miner, "./AssemblePiecesEx2", pieces, 0, true)
 }
 
 func TestAssemblePiecesExample3(t *testing.T) {
 	createTestPieces(t, "./ExamplePieces")
 	defer clearTestPieces(t, "./ExamplePieces")
+
+	miner, err := NewMiner(rand.Int63(), abi.RegisteredSealProof_StackedDrg2KiBV1)
+	require.NoError(t, err)
 
 	pieces := []string{
 		getTestPieceName("./ExamplePieces", "ex3_1", uint64(EX3PIECE1SIZE)),
@@ -131,5 +161,95 @@ func TestAssemblePiecesExample3(t *testing.T) {
 		getTestPieceName("./ExamplePieces", "ex3_6", uint64(EX3PIECE6SIZE)),
 		getTestPieceName("./ExamplePieces", "ex3_7", uint64(EX3PIECE7SIZE)),
 	}
-	runMinerAssemblePieces(t, abi.RegisteredSealProof_StackedDrg8MiBV1, "./AssemblePiecesExample3", pieces, 0)
+	assemblePieces(t, miner, "./AssemblePiecesEx3", pieces, 0, true)
+}
+
+func TestPoRepSetupExample1(t *testing.T) {
+	createTestPieces(t, "./ExamplePieces")
+	defer clearTestPieces(t, "./ExamplePieces")
+
+	miner, err := NewMiner(rand.Int63(), abi.RegisteredSealProof_StackedDrg2KiBV1)
+	require.NoError(t, err)
+
+	pieces := []string{
+		getTestPieceName("./ExamplePieces", "ex1_1", uint64(EX1PIECE1SIZE)),
+		getTestPieceName("./ExamplePieces", "ex1_2", uint64(EX1PIECE2SIZE)),
+		getTestPieceName("./ExamplePieces", "ex1_3", uint64(EX1PIECE3SIZE)),
+	}
+	staged, sector, cache, pieceInfos := assemblePieces(t, miner, "./SetupEx1", pieces, 0, false)
+
+	start := time.Now()
+	sealedCID, unsealedCID, err := miner.PoRepSetup(
+		cache, staged, sector,
+		getRandSectorNum(),
+		getRandStatementID(),
+		pieceInfos,
+	)
+	require.NoError(t, err)
+	t.Logf("PoRepSetup() takes %s ...\n", time.Now().Sub(start).String())
+
+	t.Logf("sealedCID = {%s}\n", sealedCID.String())
+	t.Logf("unsealedCID = {%s}\n", unsealedCID.String())
+	require.NoError(t, os.RemoveAll("./SetupEx1"))
+}
+
+func TestPoRepSetupExample2(t *testing.T) {
+	createTestPieces(t, "./ExamplePieces")
+	defer clearTestPieces(t, "./ExamplePieces")
+
+	miner, err := NewMiner(rand.Int63(), abi.RegisteredSealProof_StackedDrg2KiBV1)
+	require.NoError(t, err)
+
+	pieces := []string{
+		getTestPieceName("./ExamplePieces", "ex2", uint64(EX2PIECESIZE)),
+	}
+	staged, sector, cache, pieceInfos := assemblePieces(t, miner, "./SetupEx2", pieces, 0, false)
+
+	start := time.Now()
+	sealedCID, unsealedCID, err := miner.PoRepSetup(
+		cache, staged, sector,
+		getRandSectorNum(),
+		getRandStatementID(),
+		pieceInfos,
+	)
+	require.NoError(t, err)
+	t.Logf("PoRepSetup() takes %s ...\n", time.Now().Sub(start).String())
+
+	t.Logf("sealedCID = {%s}\n", sealedCID.String())
+	t.Logf("unsealedCID = {%s}\n", unsealedCID.String())
+	require.NoError(t, os.RemoveAll("./SetupEx2"))
+}
+
+func TestPoRepSetupExample3(t *testing.T) {
+	createTestPieces(t, "./ExamplePieces")
+	defer clearTestPieces(t, "./ExamplePieces")
+
+	miner, err := NewMiner(rand.Int63(), abi.RegisteredSealProof_StackedDrg8MiBV1)
+	require.NoError(t, err)
+
+	pieces := []string{
+		getTestPieceName("./ExamplePieces", "ex3_1", uint64(EX3PIECE1SIZE)),
+		getTestPieceName("./ExamplePieces", "ex3_2", uint64(EX3PIECE2SIZE)),
+		getTestPieceName("./ExamplePieces", "ex3_3", uint64(EX3PIECE3SIZE)),
+		getTestPieceName("./ExamplePieces", "ex3_4", uint64(EX3PIECE4SIZE)),
+		getTestPieceName("./ExamplePieces", "ex3_5", uint64(EX3PIECE5SIZE)),
+		getTestPieceName("./ExamplePieces", "ex3_6", uint64(EX3PIECE6SIZE)),
+		getTestPieceName("./ExamplePieces", "ex3_7", uint64(EX3PIECE7SIZE)),
+	}
+	staged, sector, cache, pieceInfos := assemblePieces(t, miner, "./SetupEx3", pieces, 0, false)
+
+	start := time.Now()
+	sealedCID, unsealedCID, err := miner.PoRepSetup(
+		cache, staged, sector,
+		getRandSectorNum(),
+		getRandStatementID(),
+		pieceInfos,
+	)
+	require.Error(t, err)
+	t.Logf("PoRepSetup() takes %s ...\n", time.Now().Sub(start).String())
+	t.Logf("Oversized staged file cause issue: %s\n", err)
+
+	t.Logf("sealedCID = {%s}\n", sealedCID.String())
+	t.Logf("unsealedCID = {%s}\n", unsealedCID.String())
+	require.NoError(t, os.RemoveAll("./SetupEx3"))
 }
