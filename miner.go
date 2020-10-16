@@ -7,6 +7,8 @@ package wrapper
 // 3. prove while being challenged
 
 import (
+	"encoding/base64"
+	"fmt"
 	"os"
 	"path"
 
@@ -26,11 +28,46 @@ const (
 	DEFAULTCACHEMODE = 0755
 )
 
+type MinerStorage struct {
+	fileDB      map[string]string
+	statementDB map[string]*Statement
+}
+
+// NewMinerStorage as the factory
+func NewMinerStorage() *MinerStorage {
+	return &MinerStorage{
+		fileDB:      make(map[string]string),
+		statementDB: make(map[string]*Statement),
+	}
+}
+
+func (ms *MinerStorage) SetStatement(st *Statement) {
+	key := base64.StdEncoding.EncodeToString([]byte(st.ID))
+	ms.statementDB[key] = st
+}
+
+func (ms *MinerStorage) GetStatement(givenID abi.SealRandomness) *Statement {
+	key := base64.StdEncoding.EncodeToString([]byte(givenID))
+	return ms.statementDB[key]
+}
+
+func (ms *MinerStorage) SetStatementDir(givenID []byte, path string) {
+	key := base64.StdEncoding.EncodeToString(givenID)
+	ms.fileDB[key] = path
+}
+
+func (ms *MinerStorage) GetStatementDir(givenID abi.SealRandomness) string {
+	key := base64.StdEncoding.EncodeToString([]byte(givenID))
+	return ms.fileDB[key]
+}
+
 // Miner is the `storage` part in this demo
 type Miner struct {
 	ID                  abi.ActorID
 	ProofType           abi.RegisteredSealProof
 	SectorUnpaddedSpace abi.UnpaddedPieceSize
+	Validator           *Validator
+	Store               *MinerStorage
 }
 
 // NewMiner as the factory
@@ -45,7 +82,25 @@ func NewMiner(givenID int64, givenType abi.RegisteredSealProof) (*Miner, error) 
 		ID:                  abi.ActorID(givenID),
 		ProofType:           givenType,
 		SectorUnpaddedSpace: unpaddedSpace,
+		Store:               NewMinerStorage(),
 	}, nil
+}
+
+// RegisterValidator
+func (m *Miner) RegisterValidator(val *Validator) {
+	m.Validator = val
+}
+
+func getSectorName(dir string) string {
+	return path.Join(dir, DEFAULTSECTORNAME)
+}
+
+func getStagedName(dir string) string {
+	return path.Join(dir, DEFAULTSTAGEDNAME)
+}
+
+func getCacheName(dir string) string {
+	return path.Join(dir, DEFAULTCACHENAME)
 }
 
 // InitSectorDir will:
@@ -53,14 +108,14 @@ func NewMiner(givenID int64, givenType abi.RegisteredSealProof) (*Miner, error) 
 // 2. create a sector file
 // 3. create a cache dir for setup operation
 func (m *Miner) InitSectorDir(dir string) (staged *os.File, sector, cache string, err error) {
-	sector = path.Join(dir, DEFAULTSECTORNAME)
+	sector = getSectorName(dir)
 	file, err := os.OpenFile(sector, os.O_CREATE|os.O_RDWR, DEFAULTSECTORMODE)
 	if err != nil {
 		return
 	}
 	file.Close()
 
-	stagedPath := path.Join(dir, DEFAULTSTAGEDNAME)
+	stagedPath := getStagedName(dir)
 	staged, err = os.OpenFile(stagedPath, os.O_CREATE|os.O_RDWR, DEFAULTSTAGEDMODE)
 	if err != nil {
 		os.Remove(sector)
@@ -68,7 +123,7 @@ func (m *Miner) InitSectorDir(dir string) (staged *os.File, sector, cache string
 		return
 	}
 
-	cache = path.Join(dir, DEFAULTCACHENAME)
+	cache = getCacheName(dir)
 	if err = os.Mkdir(cache, DEFAULTCACHEMODE); err != nil {
 		staged.Close()
 		os.Remove(stagedPath)
@@ -182,6 +237,41 @@ func (m *Miner) PoRepSetup(
 	return
 }
 
+// CommitStatement used to build a statement and send it to validator
+func (m *Miner) CommitStatement(
+	givenID []byte,
+	sectorNum uint64,
+	sectorDir string,
+	sectorPieces []abi.PieceInfo,
+) *Statement {
+	// generate
+	sealedCID, unsealedCID, err := m.PoRepSetup(
+		getCacheName(sectorDir),
+		getStagedName(sectorDir),
+		getSectorName(sectorDir),
+		abi.SectorNumber(sectorNum),
+		abi.SealRandomness(givenID),
+		sectorPieces,
+	)
+	if err != nil {
+		panic(fmt.Errorf("error generate statement for %s: %s", sectorDir, err))
+	}
+	m.Store.SetStatementDir(givenID, sectorDir)
+
+	statement := &Statement{
+		ID:          abi.SealRandomness(givenID),
+		MinerID:     m.ID,
+		SectorNum:   abi.SectorNumber(sectorNum),
+		SealedCID:   sealedCID,
+		UnsealedCID: unsealedCID,
+		// optional
+		Pieces: sectorPieces,
+	}
+	m.Store.SetStatement(statement)
+
+	return statement
+}
+
 // PoRepProve responses to a PoRep challenge
 func (m *Miner) PoRepProve(
 	sealedCID, unsealedCID cid.Cid,
@@ -206,4 +296,28 @@ func (m *Miner) PoRepProve(
 	}
 
 	return ffi.SealCommitPhase2(commitPhase1Output, sectorNum, m.ID)
+}
+
+// AnswerChallenge create an answer proof
+func (m *Miner) AnswerChallenge(chal *Challenge) *Proof {
+	st := m.Store.GetStatement(chal.StatementID)
+	sectorDir := m.Store.GetStatementDir(chal.StatementID)
+
+	prf, err := m.PoRepProve(
+		st.SealedCID,
+		st.UnsealedCID,
+		getCacheName(sectorDir),
+		getSectorName(sectorDir),
+		st.SectorNum,
+		st.ID,
+		chal.Content,
+		st.Pieces,
+	)
+	if err != nil {
+		panic(fmt.Errorf("answer challenge to %s: %s", sectorDir, err))
+	}
+
+	return &Proof{
+		Content: prf,
+	}
 }

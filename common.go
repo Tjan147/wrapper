@@ -5,10 +5,30 @@ import (
 	"os"
 
 	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/ipfs/go-cid"
 )
 
 // Statement contains necessary info for PoRep verify
-type Statement struct{}
+type Statement struct {
+	ID abi.SealRandomness
+	MinerID abi.ActorID
+	SectorNum abi.SectorNumber
+	SealedCID cid.Cid, 
+	UnsealedCID cid.Cid,
+	// optional
+	Pieces []abi.PieceInfo,
+}
+
+// Challenge contains necessary info for a miner to generate proof
+type Challenge struct {
+	StatementID abi.SealRandomness
+	Content abi.InteractiveSealRandomness
+}
+
+// Proof contains necessary info for a validator to check if a sector is VALID
+type Proof struct {
+	Content []byte
+}
 
 // UnpaddedSpace returns the actual effective space in Byte
 func UnpaddedSpace(sectorSize uint64) abi.UnpaddedPieceSize {
