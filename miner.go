@@ -28,6 +28,7 @@ const (
 	DEFAULTCACHEMODE = 0755
 )
 
+// MinerStorage works as the mimic of storage node
 type MinerStorage struct {
 	fileDB      map[string]string
 	statementDB map[string]*Statement
@@ -41,21 +42,25 @@ func NewMinerStorage() *MinerStorage {
 	}
 }
 
+// SetStatement as setter mimic
 func (ms *MinerStorage) SetStatement(st *Statement) {
 	key := base64.StdEncoding.EncodeToString([]byte(st.ID))
 	ms.statementDB[key] = st
 }
 
+// GetStatement as getter mimic
 func (ms *MinerStorage) GetStatement(givenID abi.SealRandomness) *Statement {
 	key := base64.StdEncoding.EncodeToString([]byte(givenID))
 	return ms.statementDB[key]
 }
 
+// SetStatementDir as setter mimic
 func (ms *MinerStorage) SetStatementDir(givenID []byte, path string) {
 	key := base64.StdEncoding.EncodeToString(givenID)
 	ms.fileDB[key] = path
 }
 
+// GetStatementDir as getter mimic
 func (ms *MinerStorage) GetStatementDir(givenID abi.SealRandomness) string {
 	key := base64.StdEncoding.EncodeToString([]byte(givenID))
 	return ms.fileDB[key]
@@ -86,8 +91,8 @@ func NewMiner(givenID int64, givenType abi.RegisteredSealProof) (*Miner, error) 
 	}, nil
 }
 
-// RegisterValidator
-func (m *Miner) RegisterValidator(val *Validator) {
+// Pledge mimic the miner pledge process
+func (m *Miner) Pledge(val *Validator) {
 	m.Validator = val
 }
 
@@ -261,6 +266,7 @@ func (m *Miner) CommitStatement(
 	statement := &Statement{
 		ID:          abi.SealRandomness(givenID),
 		MinerID:     m.ID,
+		ProofType:   m.ProofType,
 		SectorNum:   abi.SectorNumber(sectorNum),
 		SealedCID:   sealedCID,
 		UnsealedCID: unsealedCID,
@@ -272,17 +278,23 @@ func (m *Miner) CommitStatement(
 	return statement
 }
 
+// QueryChallengeSet query the challenge info from the validator
+func (m *Miner) QueryChallengeSet() *Challenge {
+	return m.Validator.queryChallengeSet()
+}
+
 // PoRepProve responses to a PoRep challenge
 func (m *Miner) PoRepProve(
 	sealedCID, unsealedCID cid.Cid,
 	cacheDir, sealedFilePath string,
+	proofType abi.RegisteredSealProof,
 	sectorNum abi.SectorNumber,
 	statementID abi.SealRandomness,
 	chal abi.InteractiveSealRandomness,
 	pieces []abi.PieceInfo,
 ) ([]byte, error) {
 	commitPhase1Output, callErr := ffi.SealCommitPhase1(
-		m.ProofType,
+		proofType,
 		sealedCID, unsealedCID,
 		cacheDir, sealedFilePath,
 		sectorNum,
@@ -298,8 +310,8 @@ func (m *Miner) PoRepProve(
 	return ffi.SealCommitPhase2(commitPhase1Output, sectorNum, m.ID)
 }
 
-// AnswerChallenge create an answer proof
-func (m *Miner) AnswerChallenge(chal *Challenge) *Proof {
+// ResponseToChallenge create an answer proof
+func (m *Miner) ResponseToChallenge(chal *Challenge) *Proof {
 	st := m.Store.GetStatement(chal.StatementID)
 	sectorDir := m.Store.GetStatementDir(chal.StatementID)
 
@@ -308,6 +320,7 @@ func (m *Miner) AnswerChallenge(chal *Challenge) *Proof {
 		st.UnsealedCID,
 		getCacheName(sectorDir),
 		getSectorName(sectorDir),
+		st.ProofType,
 		st.SectorNum,
 		st.ID,
 		chal.Content,

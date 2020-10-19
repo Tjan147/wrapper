@@ -10,19 +10,20 @@ import (
 
 // Statement contains necessary info for PoRep verify
 type Statement struct {
-	ID abi.SealRandomness
-	MinerID abi.ActorID
-	SectorNum abi.SectorNumber
-	SealedCID cid.Cid, 
-	UnsealedCID cid.Cid,
+	ID          abi.SealRandomness
+	MinerID     abi.ActorID
+	ProofType   abi.RegisteredSealProof
+	SectorNum   abi.SectorNumber
+	SealedCID   cid.Cid
+	UnsealedCID cid.Cid
 	// optional
-	Pieces []abi.PieceInfo,
+	Pieces []abi.PieceInfo
 }
 
 // Challenge contains necessary info for a miner to generate proof
 type Challenge struct {
 	StatementID abi.SealRandomness
-	Content abi.InteractiveSealRandomness
+	Content     abi.InteractiveSealRandomness
 }
 
 // Proof contains necessary info for a validator to check if a sector is VALID

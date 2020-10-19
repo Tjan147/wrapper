@@ -14,22 +14,58 @@ import (
 	"github.com/ipfs/go-cid"
 )
 
-type ValidatorKeeper struct {
+type Keeper struct {
 	statement *Statement
+	challenge *Challenge
+}
+
+// SetStatement save the validator commited statement
+func (k *Keeper) SetStatement(st *Statement) {
+	k.statement = st
+}
+
+// GetStatement as getter
+func (k *Keeper) GetStatement() *Statement {
+	return k.statement
+}
+
+// PickStatement mimic the actual method with the same name
+func (k *Keeper) PickStatement() *Statement {
+	return k.statement
+}
+
+// SetChallenge
+func (k *Keeper) SetChallenge(chal *Challenge) {
+	k.challenge = chal
+}
+
+// GetChallenge
+func (k *Keeper) GetChallenge() *Challenge {
+	return k.challenge
 }
 
 // Validator is the statement challenge
 type Validator struct {
-	store *Statement
+	keeper *Keeper
+}
+
+// NewValidator as the factor method
+func NewValidator() *Validator {
+	k := &Keeper{
+		statement: nil,
+		challenge: nil,
+	}
+
+	return &Validator{
+		keeper: k,
+	}
 }
 
 // RANDBUFLEN is the length of random bytes
 const RANDBUFLEN = 32
 
 func (v *Validator) handlePoRepStatement(st *Statement) {
-}
-
-func (v *Validator) GenChallenge() {
+	v.keeper.SetStatement(st)
 }
 
 // PoRepChallenge fire a challenge
@@ -42,14 +78,26 @@ func (v *Validator) PoRepChallenge() abi.InteractiveSealRandomness {
 	return abi.InteractiveSealRandomness(ret)
 }
 
-func (v *Validator) QueryChallengeSet() *Challenge {
-	return nil
+// GenChallenge mimic the actual method with the same name
+func (v *Validator) GenChallenge() {
+	st := v.keeper.PickStatement()
+	chal := v.PoRepChallenge()
+
+	v.keeper.SetChallenge(&Challenge{
+		StatementID: st.ID,
+		Content:     chal,
+	})
+}
+
+func (v *Validator) queryChallengeSet() *Challenge {
+	return v.keeper.GetChallenge()
 }
 
 // PoRepVerify validate the proof commit by miner
 func (v *Validator) PoRepVerify(
 	minerID abi.ActorID,
 	sectorNum abi.SectorNumber,
+	proofType abi.RegisteredSealProof,
 	sealedCID, unsealedCID cid.Cid,
 	statementID abi.SealRandomness,
 	chal abi.InteractiveSealRandomness,
@@ -61,7 +109,7 @@ func (v *Validator) PoRepVerify(
 			Number: sectorNum,
 		},
 		SealedCID:             sealedCID,
-		SealProof:             v.storeMiner.ProofType,
+		SealProof:             proofType,
 		Proof:                 proof,
 		DealIDs:               []abi.DealID{},
 		Randomness:            statementID,
@@ -71,5 +119,17 @@ func (v *Validator) PoRepVerify(
 }
 
 func (v *Validator) handlePoRepProof(prf *Proof) (bool, error) {
+	chal := v.keeper.GetChallenge()
+	st := v.keeper.GetStatement()
 
+	return v.PoRepVerify(
+		st.MinerID,
+		st.SectorNum,
+		st.ProofType,
+		st.SealedCID,
+		st.UnsealedCID,
+		st.ID,
+		chal.Content,
+		prf.Content,
+	)
 }
