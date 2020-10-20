@@ -5,6 +5,7 @@ set -exo pipefail
 #
 # https://github.com/filecoin-project/rust-fil-proofs\#parameter-file-location
 #
+export IPFS_GATEWAY=https://proof-parameters.s3.cn-south-1.jdcloud-oss.com/ipfs/
 export FIL_PROOFS_PARAMETER_CACHE=./extern/params
 
 if [ ! -d ./extern/paramfetch ]

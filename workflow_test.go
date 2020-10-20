@@ -52,12 +52,14 @@ func TestWorkflow(t *testing.T) {
 
 	// MINER apply the PoRep setup upon the staged data
 	// and form a statement
+	start := time.Now()
 	statement := miner.CommitStatement(
 		getRandStatementID(),
 		uint64(getRandSectorNum()),
 		"./workflow",
 		pieceInfos,
 	)
+	t.Logf("2k-sector PoRep setup takes %s...\n", time.Now().Sub(start).String())
 
 	// MINER post the statement to validator and trigger the handler logic
 	validator.handlePoRepStatement(statement)
@@ -67,10 +69,14 @@ func TestWorkflow(t *testing.T) {
 
 	// MINER query the validator for challenge infomation & response to the challenge
 	challenge := miner.QueryChallengeSet()
+	start = time.Now()
 	proof := miner.ResponseToChallenge(challenge)
+	t.Logf("2k-sector PoRep prove takes %s...\n", time.Now().Sub(start).String())
 
 	// VALIDATOR tries to verify the proof commited by MINER
+	start = time.Now()
 	isValid, err := validator.handlePoRepProof(proof)
+	t.Logf("2k-sector PoRep verify takes %s...\n", time.Now().Sub(start).String())
 	require.NoError(t, err)
 	require.True(t, isValid)
 }
