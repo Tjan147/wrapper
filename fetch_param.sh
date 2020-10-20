@@ -15,5 +15,5 @@ fi
 cd ./extern/paramfetch
 go mod edit -replace=github.com/filecoin-project/go-paramfetch=./
 go build -o ./go-paramfetch ./paramfetch
-./go-paramfetch 2048 ../ffi/parameters.json
 cd ../..
+./extern/paramfetch/go-paramfetch 2048 ./extern/ffi/parameters.json
