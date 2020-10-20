@@ -9,3 +9,6 @@ bin/
 # for go part
 build/
 sample/
+
+# for filecoin part
+extern/params/

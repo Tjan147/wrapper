@@ -13,6 +13,7 @@ import (
 )
 
 var (
+	// WARNING: all piece size should be integer power of 2 (unpadded)
 	EX1PIECE1SIZE = UnpaddedSpace(1024)
 	EX1PIECE2SIZE = UnpaddedSpace(512)
 	EX1PIECE3SIZE = UnpaddedSpace(256)
