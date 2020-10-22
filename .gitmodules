@@ -1,6 +1,8 @@
 [submodule "extern/ffi"]
 	path = extern/ffi
 	url = https://github.com/filecoin-project/filecoin-ffi.git
+	ignore = dirty
 [submodule "extern/paramfetch"]
 	path = extern/paramfetch
 	url = https://github.com/filecoin-project/go-paramfetch.git
+	ignore = dirty

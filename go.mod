@@ -11,4 +11,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 )
 
-replace github.com/filecoin-project/filecoin-ffi => ./extern/ffi
+replace (
+	github.com/filecoin-project/filecoin-ffi => ./extern/ffi
+	github.com/tjan147/wrapper => ./
+)
