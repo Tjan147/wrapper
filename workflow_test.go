@@ -40,10 +40,11 @@ func TestWorkflow(t *testing.T) {
 	miner.Pledge(validator)
 
 	// MINER receive data pieces from USER
-	pieces := userUploadPieces(t, "./workflow")
+	sampleDir := "./workflow"
+	pieces := userUploadPieces(t, sampleDir)
 
 	// MINER assemble the pieces as staged file
-	staged, _, _, err := miner.InitSectorDir("./workflow")
+	staged, _, _, err := miner.InitSectorDir(sampleDir)
 	require.NoError(t, err)
 
 	_, _, pieceInfos, err := miner.AssemblePieces(staged, pieces)
@@ -56,10 +57,12 @@ func TestWorkflow(t *testing.T) {
 	statement := miner.CommitStatement(
 		getRandStatementID(),
 		uint64(getRandSectorNum()),
-		"./workflow",
+		sampleDir,
 		pieceInfos,
 	)
-	t.Logf("2k-sector PoRep setup takes %s...\n", time.Now().Sub(start).String())
+	t.Logf("2k-sector PoRep setup takes %s ...\n", time.Now().Sub(start).String())
+	t.Logf("2k-sector PoRep setup returns sealed CID: %s\n", statement.SealedCID.String())
+	t.Logf("2k-sector PoRep setup returns unsealed CID: %s\n", statement.UnsealedCID.String())
 
 	// MINER post the statement to validator and trigger the handler logic
 	validator.handlePoRepStatement(statement)
@@ -72,6 +75,7 @@ func TestWorkflow(t *testing.T) {
 	start = time.Now()
 	proof := miner.ResponseToChallenge(challenge)
 	t.Logf("2k-sector PoRep prove takes %s...\n", time.Now().Sub(start).String())
+	t.Logf("2k-sector PoRep prove returns %dB-lenght proof\n", len(proof.Content))
 
 	// VALIDATOR tries to verify the proof commited by MINER
 	start = time.Now()
@@ -79,4 +83,6 @@ func TestWorkflow(t *testing.T) {
 	t.Logf("2k-sector PoRep verify takes %s...\n", time.Now().Sub(start).String())
 	require.NoError(t, err)
 	require.True(t, isValid)
+
+	require.NoError(t, os.RemoveAll(sampleDir))
 }
