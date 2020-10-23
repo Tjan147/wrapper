@@ -65,7 +65,7 @@ func TestWorkflow(t *testing.T) {
 	t.Logf("2k-sector PoRep setup returns unsealed CID: %s\n", statement.UnsealedCID.String())
 
 	// MINER post the statement to validator and trigger the handler logic
-	validator.handlePoRepStatement(statement)
+	validator.HandlePoRepStatement(statement)
 
 	// VALIDATOR generate challenge responding to the commited statement
 	validator.GenChallenge()
@@ -79,7 +79,7 @@ func TestWorkflow(t *testing.T) {
 
 	// VALIDATOR tries to verify the proof commited by MINER
 	start = time.Now()
-	isValid, err := validator.handlePoRepProof(proof)
+	isValid, err := validator.HandlePoRepProof(proof)
 	t.Logf("2k-sector PoRep verify takes %s...\n", time.Now().Sub(start).String())
 	require.NoError(t, err)
 	require.True(t, isValid)

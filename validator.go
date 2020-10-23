@@ -64,7 +64,8 @@ func NewValidator() *Validator {
 // RANDBUFLEN is the length of random bytes
 const RANDBUFLEN = 32
 
-func (v *Validator) handlePoRepStatement(st *Statement) {
+// HandlePoRepStatement mimics the cosmos handler
+func (v *Validator) HandlePoRepStatement(st *Statement) {
 	v.keeper.SetStatement(st)
 }
 
@@ -118,7 +119,8 @@ func (v *Validator) PoRepVerify(
 	})
 }
 
-func (v *Validator) handlePoRepProof(prf *Proof) (bool, error) {
+// HandlePoRepProof mimics the cosmos handler
+func (v *Validator) HandlePoRepProof(prf *Proof) (bool, error) {
 	chal := v.keeper.GetChallenge()
 	st := v.keeper.GetStatement()
 
