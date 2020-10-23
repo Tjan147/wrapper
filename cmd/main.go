@@ -141,7 +141,7 @@ func main() {
 		panic(err)
 	}
 	if !isValid {
-		panic(fmt.Errorf("Verification failed!"))
+		panic(fmt.Errorf("porep verification failed"))
 	}
 	report.AddStep(step.Done())
 
