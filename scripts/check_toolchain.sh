@@ -12,3 +12,5 @@ then
     echo "Go toolchain unavailable, please install the toolchain first!"
     echo "You can read the page: https://golang.org/doc/install for more information"
 fi
+
+echo "Local toolchains ready!"

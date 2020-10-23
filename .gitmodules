@@ -2,3 +2,6 @@
 	path = extern/paramfetch
 	url = https://github.com/filecoin-project/go-paramfetch.git
 	ignore = dirty
+[submodule "extern/ffi"]
+	path = extern/ffi
+	url = https://github.com/filecoin-project/filecoin-ffi.git

@@ -132,7 +132,7 @@ func main() {
 	report.AddStep(step.Done())
 
 	// dump report
-	if err := report.Dump(); err != nil {
+	if err := report.Dump(dir); err != nil {
 		panic(err)
 	}
 }
