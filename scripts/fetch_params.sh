@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-. ./set_env.sh
+. "$1"/set_env.sh
 
 set -exo pipefail
 

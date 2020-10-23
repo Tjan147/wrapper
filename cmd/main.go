@@ -5,8 +5,6 @@ import (
 	"math/rand"
 	"os"
 	"path"
-	"runtime"
-	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -24,7 +22,7 @@ func getRandStatementID() abi.SealRandomness {
 }
 
 func inputToProofType(input string) abi.RegisteredSealProof {
-	switch strings.TrimSpace(input) {
+	switch strings.ToUpper(strings.TrimSpace(input)) {
 	case "2K":
 		return abi.RegisteredSealProof_StackedDrg2KiBV1
 	case "8M":
@@ -52,18 +50,6 @@ func main() {
 
 	// seed the randomizer
 	rand.Seed(time.Now().UnixNano())
-
-	// prepare the CPU profiling
-	cpuProfFile, err := os.Create(dir + "_CPU.prof")
-	if err != nil {
-		panic(err)
-	}
-	defer cpuProfFile.Close()
-
-	if err := pprof.StartCPUProfile(cpuProfFile); err != nil {
-		panic(err)
-	}
-	defer pprof.StopCPUProfile()
 
 	// initialize for the PoRep process
 	typSize, err := typ.SectorSize()
@@ -147,19 +133,6 @@ func main() {
 
 	// dump report
 	if err := report.Dump(); err != nil {
-		panic(err)
-	}
-
-	// log the memory profiling info
-	memProfFile, err := os.Create(dir + "_Mem.prof")
-	if err != nil {
-		panic(err)
-	}
-	defer memProfFile.Close()
-
-	runtime.GC()
-
-	if err := pprof.WriteHeapProfile(memProfFile); err != nil {
 		panic(err)
 	}
 }
