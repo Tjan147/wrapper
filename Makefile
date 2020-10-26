@@ -16,7 +16,7 @@ all: check-tools install-deps
 .PHONY: all
 
 fetch-params:
-	@bash $(PROJ_HOME)scripts/fetch_params.sh $(PROJ_HOME)
+	@bash $(PROJ_HOME)scripts/fetch_params.sh $(PROJ_HOME) $(SECTOR_SIZE)
 .PHONY: fetch-params
 
 bench: fetch-params
