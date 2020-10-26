@@ -50,7 +50,7 @@ func genXAxis(interval time.Duration, count int) []string {
 	// start from 1 rather than 0, see run_bench.sh script
 	for i := 1; i <= count; i++ {
 		dur := time.Duration(i) * interval
-		ret = append(ret, fmt.Sprintf(".0%fs", dur.Seconds()))
+		ret = append(ret, fmt.Sprintf("%.2fs", dur.Seconds()))
 	}
 
 	return ret
