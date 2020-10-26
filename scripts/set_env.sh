@@ -3,13 +3,15 @@
 # for more infomation on environment configuration
 # please read: https://github.com/filecoin-project/rust-fil-proofs/blob/master/README.md
 
+PROJ_HOME="$1"
+
 # IPFS gateway China cache
 #
 export IPFS_GATEWAY=https://proof-parameters.s3.cn-south-1.jdcloud-oss.com/ipfs/
 
 # the location to store downloaded parameters
 #
-export FIL_PROOFS_PARAMETER_CACHE=./extern/params
+export FIL_PROOFS_PARAMETER_CACHE="$PROJ_HOME/extern/params"
 
 # to toggle the downloaded parameter verification
 #

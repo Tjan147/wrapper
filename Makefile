@@ -12,9 +12,13 @@ install-deps:
 .PHONY: install-deps
 
 go-build: check-tools install-deps
-	cd $(PROJ_HOME) && go build -o bin/bench ./cmd
+	cd $(PROJ_HOME) && go build -o $(PROJ_HOME)bin/bench ./cmd
 .PHONY: go-build
 
-report:
-	bash $(PROJ_HOME)scripts/run_bench.sh sample 2K
-.PHONY: report
+fetch-params:
+	@bash $(PROJ_HOME)scripts/fetch_params.sh $(PROJ_HOME)
+.PHONY: fetch-params
+
+bench: fetch-params
+	bash $(PROJ_HOME)scripts/run_bench.sh $(PROJ_HOME) sample 2K
+.PHONY: bench
