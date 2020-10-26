@@ -40,7 +40,7 @@ func inputToProofType(input string) abi.RegisteredSealProof {
 func main() {
 	// validate the input parameters
 	if len(os.Args) != 3 {
-		fmt.Println("Require 2 arguments as input parameter.")
+		fmt.Println("Require 2 arguments as input parameters.")
 		fmt.Println("Example:")
 		fmt.Printf("\t%s sample 2k\n", os.Args[0])
 		os.Exit(0)

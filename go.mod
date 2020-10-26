@@ -7,6 +7,8 @@ require (
 	github.com/filecoin-project/go-paramfetch v0.0.1 // indirect
 	github.com/filecoin-project/go-state-types v0.0.0-20200928172055-2df22083d8ab
 	github.com/filecoin-project/specs-actors v0.9.12
+	github.com/go-echarts/go-echarts v1.0.0 // indirect
+	github.com/go-echarts/go-echarts/v2 v2.0.0 // indirect
 	github.com/ipfs/go-cid v0.0.7
 	github.com/stretchr/testify v1.6.1
 )

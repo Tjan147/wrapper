@@ -1,4 +1,5 @@
 PROJ_HOME := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
+# TODO: add default input logic
 
 all: report
 .PHONY: all
@@ -12,7 +13,7 @@ install-deps:
 .PHONY: install-deps
 
 go-build: check-tools install-deps
-	cd $(PROJ_HOME) && go build -o $(PROJ_HOME)bin/bench ./cmd
+	go build -o $(PROJ_HOME)bin/bench ./cmd
 .PHONY: go-build
 
 fetch-params:
@@ -22,3 +23,7 @@ fetch-params:
 bench: fetch-params
 	bash $(PROJ_HOME)scripts/run_bench.sh $(PROJ_HOME) sample 2K
 .PHONY: bench
+
+report:
+	go run report/main.go sample 5s
+.PHONY: report

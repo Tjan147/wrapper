@@ -70,6 +70,6 @@ func (r *Report) Dump(dir string) error {
 		return err
 	}
 
-	out := path.Join(dir, fmt.Sprintf("%s-%s.json", r.Detail, r.SectorSize))
+	out := path.Join(dir, fmt.Sprintf("report-%s-%s.json", r.Detail, r.SectorSize))
 	return ioutil.WriteFile(out, content, 0644)
 }
