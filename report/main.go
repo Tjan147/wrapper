@@ -26,16 +26,25 @@ const (
 // TODO: fix the magic numbers here
 func parseProfileLine(line string) (cpu, mem *opts.LineData, err error) {
 	items := strings.Split(strings.TrimSpace(line), " ")
-	if len(items) != 2 {
+
+	// filter the empty lines
+	filteredItems := make([]string, 0)
+	for _, it := range items {
+		if len(strings.TrimSpace(it)) > 0 {
+			filteredItems = append(filteredItems, it)
+		}
+	}
+
+	if len(filteredItems) != 2 {
 		return nil, nil, fmt.Errorf("malformat line: %s", line)
 	}
 
-	cpuData, err := strconv.ParseFloat(items[0], 64)
+	cpuData, err := strconv.ParseFloat(filteredItems[0], 64)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	memData, err := strconv.ParseInt(items[1], 10, 64)
+	memData, err := strconv.ParseInt(filteredItems[1], 10, 64)
 	if err != nil {
 		return nil, nil, err
 	}
